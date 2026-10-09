@@ -37,7 +37,7 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     record.assert_called_once_with(output / "recording.wav")
     assert "Speaker 1: Hello." in (output / "transcript.txt").read_text()
     data = json.loads((output / "transcript.json").read_text())
-    assert data["diarization_model"] == "nvidia/Nemotron-3-Diarization"
+    assert data["diarization_model"] == "mlx-community/Nemotron-3-Diarization-8bit"
     assert data["transcript"][0]["text"] == "Hello."
     assert data["speaker_turns"][0]["speaker"] == "Speaker 1"
 

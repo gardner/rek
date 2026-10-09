@@ -43,7 +43,7 @@ def parse_args(argv: list[str] | None = None) -> Options:
         "--device",
         choices=["auto", "cpu", "cuda", "mps"],
         default="auto",
-        help="Inference device (auto: CUDA if available, otherwise CPU).",
+        help="Inference device (auto: CUDA, then Apple GPU, then CPU).",
     )
     parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL, help="Whisper model ID.")
     parser.add_argument("--language", help="Spoken language, e.g. en; auto-detected when omitted.")

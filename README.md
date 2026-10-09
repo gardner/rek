@@ -1,8 +1,8 @@
 # tscribe
 
 Record your microphone, then transcribe locally with timestamps and speaker labels.
-[NVIDIA Nemotron-3-Diarization](https://huggingface.co/nvidia/Nemotron-3-Diarization)
-detects who spoke when (up to eight speakers).
+[Nemotron-3-Diarization-8bit in MLX](https://huggingface.co/mlx-community/Nemotron-3-Diarization-8bit)
+detects who spoke when (up to eight speakers), using MLX Audio on the Apple GPU.
 [Whisper](https://huggingface.co/openai/whisper-base) supplies the words; Nemotron
 does not transcribe speech by itself.
 
@@ -78,10 +78,12 @@ an empty recording instead of starting inference.
 
 ## Devices and troubleshooting
 
-`--device auto` uses CUDA when available, otherwise CPU. `--device cpu` works without
-an NVIDIA GPU. On Apple Silicon, `--device mps` opts into Metal acceleration; use CPU
-if your PyTorch build reports an unsupported MPS operation. CUDA requires a compatible
-PyTorch installation and NVIDIA driver.
+On Apple Silicon, `--device auto` selects GPU acceleration: Nemotron runs through
+MLX's Metal backend and Whisper uses PyTorch MPS. These are separate runtimes using
+the same Apple GPU. `--device mps` explicitly selects this combination; `--device cpu`
+forces both models onto CPU. Auto selection prefers CUDA when available, then MPS,
+then CPU; GPU use requires support in both installed runtimes. This setup is tested
+on Apple Silicon macOS.
 
 If microphone capture fails, check the system's default input device and grant
 microphone access to your terminal/app. macOS and Windows sounddevice wheels include

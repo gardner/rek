@@ -1,19 +1,16 @@
-"""Local Nemotron diarization and Whisper word transcription."""
+"""MLX Nemotron diarization and Whisper word transcription."""
 
-from typing import Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Literal, TypedDict, cast
 
 from tscribe.audio import SAMPLE_RATE, Audio
 from tscribe.transcript import SpeakerTurn, Word
 
-DIARIZATION_MODEL = "nvidia/Nemotron-3-Diarization"
+if TYPE_CHECKING:
+    from mlx_audio.vad.models.nemotron_diarization.nemotron_diarization import Model
+
+DIARIZATION_MODEL = "mlx-community/Nemotron-3-Diarization-8bit"
 DEFAULT_ASR_MODEL = "openai/whisper-base"
 type Device = Literal["auto", "cpu", "cuda", "mps"]
-
-
-class SpeakerSegment(TypedDict):
-    Start: float
-    End: float
-    Speaker: int
 
 
 class WordChunk(TypedDict):
@@ -30,8 +27,9 @@ def resolve_device(requested: Device) -> str:
     import torch
 
     if requested == "auto":
-        # CPU is the portable default on Macs; MPS can be selected explicitly.
-        return "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.cuda.is_available():
+            return "cuda"
+        return "mps" if torch.backends.mps.is_available() else "cpu"
     if requested == "cuda" and not torch.cuda.is_available():
         raise ValueError("CUDA is unavailable. Use --device cpu or --device auto.")
     if requested == "mps" and not torch.backends.mps.is_available():
@@ -40,22 +38,21 @@ def resolve_device(requested: Device) -> str:
 
 
 def diarize(audio: Audio, device: str) -> list[SpeakerTurn]:
-    import torch
-    from transformers import AutoModelForAudioFrameClassification, AutoProcessor
+    import mlx.core as mx
+    from mlx_audio.vad import load
 
-    print(f"Identifying speakers with {DIARIZATION_MODEL} on {device}...", flush=True)
-    processor = AutoProcessor.from_pretrained(DIARIZATION_MODEL)
-    model = AutoModelForAudioFrameClassification.from_pretrained(DIARIZATION_MODEL)
-    model.to(device).eval()
-    inputs = processor(audio, sampling_rate=SAMPLE_RATE).to(device, dtype=model.dtype)
-    with torch.inference_mode():
-        logits = model(**inputs).logits
-    segments = cast(
-        list[SpeakerSegment], processor.extract_speaker_dict(logits, inputs.attention_mask)[0]
-    )
+    mlx_device = mx.cpu if device == "cpu" else mx.gpu
+    if not mx.is_available(mlx_device):
+        raise ValueError("The requested MLX device is unavailable. Try --device cpu.")
+    backend = "MLX CPU" if device == "cpu" else "MLX GPU"
+    print(f"Identifying speakers with {DIARIZATION_MODEL} on {backend}...", flush=True)
+    # Scope loading and inference to the chosen MLX device without changing global defaults.
+    with mx.stream(mlx_device):
+        model = cast("Model", load(DIARIZATION_MODEL, strict=True))
+        result = model.generate(audio, sample_rate=SAMPLE_RATE)
     return [
-        SpeakerTurn(segment["Start"], segment["End"], f"Speaker {segment['Speaker'] + 1}")
-        for segment in segments
+        SpeakerTurn(segment.start, segment.end, f"Speaker {segment.speaker + 1}")
+        for segment in result.segments
     ]
 
 
