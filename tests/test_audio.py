@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pytest
+import sounddevice as sd
 import soundfile as sf
 
 from tscribe.audio import SAMPLE_RATE, load_audio, record_audio
@@ -28,24 +29,52 @@ def test_rejects_empty_audio(tmp_path: Path) -> None:
         load_audio(path)
 
 
-def test_records_and_saves_audio_before_inference(tmp_path: Path) -> None:
+def test_ctrl_c_stops_recording_and_preserves_all_completed_blocks(tmp_path: Path) -> None:
     path = tmp_path / "recording.wav"
-    samples = np.full((SAMPLE_RATE, 1), 0.25, dtype=np.float32)
-    with patch("sounddevice.rec", return_value=samples) as record:
-        audio = record_audio(path, 1.0)
+    first = np.full((1600, 1), 0.25, dtype=np.float32)
+    second = np.full((1600, 1), -0.25, dtype=np.float32)
+    with patch("sounddevice.InputStream") as input_stream:
+        stream = input_stream.return_value.__enter__.return_value
+        stream.read.side_effect = [(first, False), (second, False), KeyboardInterrupt]
+        audio = record_audio(path)
 
-    record.assert_called_once_with(
-        SAMPLE_RATE, samplerate=SAMPLE_RATE, channels=1, dtype="float32", blocking=True
-    )
-    assert audio.shape == (SAMPLE_RATE,)
+    input_stream.return_value.__exit__.assert_called_once()
+    assert audio.shape == (3200,)
     saved, rate = sf.read(path)
     assert rate == SAMPLE_RATE
-    assert saved[0] == pytest.approx(0.25)
+    np.testing.assert_allclose(saved, np.concatenate([first, second]).reshape(-1))
+    np.testing.assert_allclose(audio, saved)
 
 
-@pytest.mark.parametrize("seconds", [0, -1, float("nan"), float("inf"), 0.000001])
-def test_rejects_invalid_durations_before_recording(tmp_path: Path, seconds: float) -> None:
-    with patch("sounddevice.rec") as record:
-        with pytest.raises(ValueError):
-            record_audio(tmp_path / "recording.wav", seconds)
-        record.assert_not_called()
+def test_stopping_before_any_audio_reports_an_empty_recording(tmp_path: Path) -> None:
+    with patch("sounddevice.InputStream") as input_stream:
+        stream = input_stream.return_value.__enter__.return_value
+        stream.read.side_effect = KeyboardInterrupt
+        with pytest.raises(ValueError, match="No audio was recorded"):
+            record_audio(tmp_path / "recording.wav")
+    input_stream.return_value.__exit__.assert_called_once()
+
+
+def test_device_failure_closes_stream_and_preserves_completed_audio(tmp_path: Path) -> None:
+    path = tmp_path / "recording.wav"
+    samples = np.full((1600, 1), 0.25, dtype=np.float32)
+    with patch("sounddevice.InputStream") as input_stream:
+        stream = input_stream.return_value.__enter__.return_value
+        stream.read.side_effect = [(samples, False), sd.PortAudioError("device disconnected")]
+        with pytest.raises(RuntimeError, match="microphone"):
+            record_audio(path)
+    input_stream.return_value.__exit__.assert_called_once()
+    saved, rate = sf.read(path)
+    assert rate == SAMPLE_RATE
+    np.testing.assert_allclose(saved, samples.reshape(-1))
+
+
+def test_warns_when_microphone_samples_are_lost(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    samples = np.zeros((1600, 1), dtype=np.float32)
+    with patch("sounddevice.InputStream") as input_stream:
+        stream = input_stream.return_value.__enter__.return_value
+        stream.read.side_effect = [(samples, True), KeyboardInterrupt]
+        record_audio(tmp_path / "recording.wav")
+    assert "audio was lost" in capsys.readouterr().err

@@ -1,4 +1,4 @@
-"""Record audio and transcribe it with speaker labels: uv run main.py."""
+"""Record until Ctrl+C, or transcribe a file: uv run main.py --input memo.m4a."""
 
 from tscribe.cli import main
 

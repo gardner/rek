@@ -1,6 +1,7 @@
 """Capture or normalize audio to the models' common 16 kHz mono input."""
 
-from math import isfinite
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -11,39 +12,82 @@ SAMPLE_RATE = 16_000
 type Audio = npt.NDArray[np.float32]
 
 
-def validate_duration(seconds: float) -> None:
-    if not isfinite(seconds) or seconds < 1 / SAMPLE_RATE:
-        raise ValueError("Recording duration must be finite and at least one audio sample.")
-
-
-def record_audio(path: Path, seconds: float) -> Audio:
-    """Record a fixed duration, then preserve the WAV before loading any models."""
-    validate_duration(seconds)
+def record_audio(path: Path) -> Audio:
+    """Write microphone blocks to disk until Ctrl+C, then return the saved audio."""
     import sounddevice as sd
 
-    print(f"Recording for {seconds:g} seconds. Speak now!", flush=True)
+    overflowed = False
     try:
-        samples = sd.rec(
-            round(seconds * SAMPLE_RATE),
-            samplerate=SAMPLE_RATE,
-            channels=1,
-            dtype="float32",
-            blocking=True,
-        )
+        with (
+            sf.SoundFile(
+                path, mode="x", samplerate=SAMPLE_RATE, channels=1, subtype="PCM_16"
+            ) as wav,
+            sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32") as stream,
+        ):
+            print("Recording. Speak now! Press Ctrl+C to stop and transcribe.", flush=True)
+            try:
+                while True:
+                    samples, dropped = stream.read(SAMPLE_RATE // 10)
+                    overflowed |= dropped
+                    wav.write(samples)
+            except KeyboardInterrupt:
+                pass  # Ctrl+C finishes this recording; model inference continues below.
     except sd.PortAudioError as error:
         raise RuntimeError(
             "Could not record audio. Check your default microphone and microphone permissions."
         ) from error
-    finally:
-        sd.stop()
-    audio = np.asarray(samples, dtype=np.float32).reshape(-1)
-    sf.write(path, audio, SAMPLE_RATE, subtype="PCM_16")
-    print(f"Audio saved to {path}", flush=True)
-    return audio
+    if overflowed:
+        print("Warning: microphone input overflowed; some audio was lost.", file=sys.stderr)
+    if sf.info(path).frames == 0:
+        raise ValueError("No audio was recorded. Start again and speak before pressing Ctrl+C.")
+    print(f"\nRecording stopped. Audio saved to {path}", flush=True)
+    return load_audio(path)
+
+
+def _load_m4a(path: Path) -> Audio:
+    """Decode AAC or ALAC in memory without creating an intermediate WAV."""
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-nostdin",
+                "-v",
+                "error",
+                "-i",
+                str(path.resolve()),
+                "-map",
+                "0:a:0",
+                "-f",
+                "f32le",
+                "-acodec",
+                "pcm_f32le",
+                "-ar",
+                str(SAMPLE_RATE),
+                "-ac",
+                "1",
+                "-rematrix_maxval",
+                "1",
+                "pipe:1",
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError(
+            "M4A input requires FFmpeg on PATH. On macOS, install it with: brew install ffmpeg"
+        ) from error
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.decode(errors="replace").strip()
+        raise ValueError(f"Could not decode M4A audio: {detail}") from error
+    if not result.stdout:
+        raise ValueError("The audio file is empty.")
+    return np.frombuffer(result.stdout, dtype="<f4").astype(np.float32)
 
 
 def load_audio(path: Path) -> Audio:
-    """Load a soundfile-supported file, mix channels, and resample if necessary."""
+    """Load M4A or a soundfile-supported file as 16 kHz mono audio."""
+    if path.suffix.lower() == ".m4a":
+        return _load_m4a(path)
     samples, sample_rate = sf.read(path, dtype="float32", always_2d=True)
     if samples.size == 0:
         raise ValueError("The audio file is empty.")

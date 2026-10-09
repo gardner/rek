@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import cast
 
-from tscribe.audio import load_audio, record_audio, validate_duration
+from tscribe.audio import load_audio, record_audio
 from tscribe.models import (
     DEFAULT_ASR_MODEL,
     DIARIZATION_MODEL,
@@ -22,7 +22,6 @@ from tscribe.transcript import align_words, render_transcript
 
 @dataclass(frozen=True)
 class Options:
-    seconds: float
     input: Path | None
     output_dir: Path | None
     device: Device
@@ -31,11 +30,12 @@ class Options:
 
 
 def parse_args(argv: list[str] | None = None) -> Options:
-    parser = argparse.ArgumentParser(description="Record and transcribe audio with speaker labels.")
-    parser.add_argument(
-        "--seconds", type=float, default=30.0, help="Recording duration (default: 30)."
+    parser = argparse.ArgumentParser(
+        description="Record until Ctrl+C, then transcribe audio with speaker labels."
     )
-    parser.add_argument("--input", type=Path, help="Transcribe an existing audio file instead.")
+    parser.add_argument(
+        "--input", type=Path, help="Transcribe an audio file (including M4A) instead."
+    )
     parser.add_argument(
         "--output-dir", type=Path, help="New output directory (default: recordings/<time>)."
     )
@@ -49,17 +49,12 @@ def parse_args(argv: list[str] | None = None) -> Options:
     parser.add_argument("--language", help="Spoken language, e.g. en; auto-detected when omitted.")
     args = parser.parse_args(argv)
     options = Options(
-        args.seconds,
         args.input,
         args.output_dir,
         cast(Device, args.device),
         args.asr_model,
         args.language,
     )
-    try:
-        validate_duration(options.seconds)
-    except ValueError as error:
-        parser.error(str(error))
     if options.input is not None and not options.input.is_file():
         parser.error(f"Audio file does not exist: {options.input}")
     return options
@@ -72,7 +67,7 @@ def run(options: Options) -> Path:
     )
     output_dir.mkdir(parents=True, exist_ok=False)
     audio_path = options.input or output_dir / "recording.wav"
-    audio = load_audio(audio_path) if options.input else record_audio(audio_path, options.seconds)
+    audio = load_audio(audio_path) if options.input else record_audio(audio_path)
     turns = diarize(audio, device)
     # Avoid Whisper hallucinations on recordings where Nemotron detects no speech.
     words = transcribe(audio, device, options.asr_model, options.language) if turns else []
