@@ -41,12 +41,18 @@ def parse_args(argv: list[str] | None = None) -> Options:
     )
     parser.add_argument(
         "--device",
-        choices=["auto", "cpu", "cuda", "mps"],
+        choices=["auto", "gpu", "cpu", "cuda", "mps"],
         default="auto",
-        help="Inference device (auto: CUDA, then Apple GPU, then CPU).",
+        help="MLX device (auto: GPU when available, otherwise CPU; mps/cuda are GPU aliases).",
     )
-    parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL, help="Whisper model ID.")
-    parser.add_argument("--language", help="Spoken language, e.g. en; auto-detected when omitted.")
+    parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL, help="MLX Parakeet model ID.")
+    parser.add_argument(
+        "--language",
+        type=str.lower,
+        choices=["en", "english"],
+        default="en",
+        help="Parakeet v2 is English-only (default: en).",
+    )
     args = parser.parse_args(argv)
     options = Options(
         args.input,
@@ -69,7 +75,7 @@ def run(options: Options) -> Path:
     audio_path = options.input or output_dir / "recording.wav"
     audio = load_audio(audio_path) if options.input else record_audio(audio_path)
     turns = diarize(audio, device)
-    # Avoid Whisper hallucinations on recordings where Nemotron detects no speech.
+    # Skip ASR when Nemotron detects no speech.
     words = transcribe(audio, device, options.asr_model, options.language) if turns else []
     utterances = align_words(words, turns)
     text = render_transcript(utterances)

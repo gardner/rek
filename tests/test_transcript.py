@@ -13,6 +13,18 @@ def test_groups_words_and_splits_at_speaker_changes() -> None:
     ]
 
 
+def test_adjacent_words_ignore_timestamp_rounding_errors() -> None:
+    words = [Word(2.0, 2.4800000000000004, " Hello"), Word(2.48, 3.0, " there.")]
+    turns = [SpeakerTurn(0.0, 4.0, "Speaker 1")]
+    assert align_words(words, turns) == [Utterance(2.0, 3.0, "Speaker 1", "Hello there.")]
+
+
+def test_actually_overlapping_words_remain_separate() -> None:
+    words = [Word(0.0, 0.5, " One"), Word(0.4, 0.8, " two")]
+    turns = [SpeakerTurn(0.0, 1.0, "Speaker 1")]
+    assert len(align_words(words, turns)) == 2
+
+
 def test_assigns_by_total_overlap_per_speaker() -> None:
     turns = [
         SpeakerTurn(0.0, 0.3, "Speaker 1"),

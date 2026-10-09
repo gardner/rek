@@ -1,7 +1,7 @@
 [project]
 name = "tscribe"
 version = "0.1.0"
-description = "Local audio recording and speaker-labelled transcription with Nemotron and Whisper"
+description = "Local English transcription with MLX Parakeet v2 and Nemotron speaker diarization"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -11,8 +11,6 @@ dependencies = [
     "numpy>=2.5.3",
     "sounddevice>=0.5.6",
     "soundfile>=0.14.0",
-    "torch>=2.14.1",
-    "transformers>=5.19.0",
 ]
 
 [project.scripts]

@@ -11,6 +11,18 @@ from tscribe.cli import Options, main, parse_args, run
 from tscribe.transcript import SpeakerTurn, Word
 
 
+def test_defaults_to_english_parakeet_v2() -> None:
+    options = parse_args([])
+    assert options.asr_model == "mlx-community/parakeet-tdt-0.6b-v2"
+    assert options.language == "en"
+
+
+def test_non_english_language_is_a_usage_error() -> None:
+    with pytest.raises(SystemExit) as error:
+        parse_args(["--language", "fr"])
+    assert error.value.code == 2
+
+
 def test_seconds_option_has_been_removed() -> None:
     with pytest.raises(SystemExit) as error:
         parse_args(["--seconds", "30"])
@@ -25,7 +37,7 @@ def test_missing_input_is_a_usage_error(tmp_path: Path) -> None:
 
 def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     output = tmp_path / "result"
-    options = Options(None, output, "cpu", "openai/whisper-base", "en")
+    options = Options(None, output, "cpu", "mlx-community/parakeet-tdt-0.6b-v2", "en")
     samples = np.zeros(16_000, dtype=np.float32)
     with (
         patch("tscribe.cli.resolve_device", return_value="cpu"),
@@ -38,6 +50,7 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     assert "Speaker 1: Hello." in (output / "transcript.txt").read_text()
     data = json.loads((output / "transcript.json").read_text())
     assert data["diarization_model"] == "mlx-community/Nemotron-3-Diarization-8bit"
+    assert data["asr_model"] == "mlx-community/parakeet-tdt-0.6b-v2"
     assert data["transcript"][0]["text"] == "Hello."
     assert data["speaker_turns"][0]["speaker"] == "Speaker 1"
 
@@ -65,7 +78,7 @@ def test_existing_output_is_not_overwritten(tmp_path: Path) -> None:
 
 
 def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
-    options = Options(None, tmp_path / "out", "cpu", "openai/whisper-base", "en")
+    options = Options(None, tmp_path / "out", "cpu", "mlx-community/parakeet-tdt-0.6b-v2", "en")
     with (
         patch("tscribe.cli.resolve_device", return_value="cpu"),
         patch("sounddevice.InputStream") as input_stream,

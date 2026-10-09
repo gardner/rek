@@ -3,8 +3,8 @@
 Record your microphone, then transcribe locally with timestamps and speaker labels.
 [Nemotron-3-Diarization-8bit in MLX](https://huggingface.co/mlx-community/Nemotron-3-Diarization-8bit)
 detects who spoke when (up to eight speakers), using MLX Audio on the Apple GPU.
-[Whisper](https://huggingface.co/openai/whisper-base) supplies the words; Nemotron
-does not transcribe speech by itself.
+[Parakeet TDT 0.6B v2 in MLX](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v2)
+transcribes **English only**. Nemotron does not transcribe speech by itself.
 
 ## Run
 
@@ -19,12 +19,12 @@ press **Ctrl+C**. Start speaking when you see **“Recording”**. Ctrl+C stops 
 finishes saving the WAV, and starts transcription. There is no duration limit or
 `--seconds` option.
 The project uses Python 3.14; uv can install it automatically. The first inference
-downloads both models from Hugging Face (hundreds of MB); later runs use the local
-cache. Audio is processed on your computer.
+downloads both models from Hugging Face (roughly 2.6 GB total); later runs use the
+local cache. Audio is processed on your computer.
 
 ```sh
-# Record until Ctrl+C, specifying the spoken language.
-uv run main.py --language en
+# Record English until Ctrl+C, explicitly using the Apple GPU.
+uv run main.py --device gpu
 
 # Process an existing file without opening the microphone.
 uv run main.py --input meeting.wav
@@ -32,8 +32,8 @@ uv run main.py --input meeting.wav
 # Transcribe an Apple Voice Memo directly; conversion is automatic.
 uv run main.py --input "Voice Memo.m4a"
 
-# Use a larger Whisper model and choose a new output directory.
-uv run main.py --asr-model openai/whisper-small --output-dir recordings/meeting
+# Choose a new output directory.
+uv run main.py --input meeting.wav --output-dir recordings/meeting
 
 uv run main.py --help
 ```
@@ -42,8 +42,10 @@ M4A (AAC or Apple Lossless), WAV, FLAC, and other formats supported by libsndfil
 be used as input. M4A decoding uses FFmpeg automatically, without changing the
 original file or creating an intermediate WAV. FFmpeg must be on PATH; on macOS,
 install it if needed with `brew install ffmpeg`. Stereo files are mixed to mono
-and resampled to 16 kHz. Language is auto-detected unless `--language` is supplied.
-Transcription starts after recording ends.
+and resampled to 16 kHz. Parakeet v2 is English-only; `--language en` is optional,
+and other languages are rejected. Transcription starts after recording ends.
+Long audio is decoded in overlapping 30-second chunks, then merged with timestamps
+relative to the full recording.
 
 ## Output
 
@@ -62,8 +64,9 @@ Example format:
 ```
 
 Speaker labels are anonymous and apply to one recording; they do not identify
-people by name. Words are assigned to the speaker with the greatest total time
-overlap. Ties, missing word timestamps, and unmatched words are labelled `Unknown`.
+people by name. Parakeet's timestamped subword pieces are joined into complete
+words, preserving punctuation. Words are assigned to the speaker with the greatest
+total time overlap. Ties, missing word timestamps, and unmatched words are labelled `Unknown`.
 Overlapping voices can reduce accuracy: this script does not separate mixed voices.
 When Nemotron detects no speech, transcription is skipped. Microphone audio is
 written to disk as you record; the completed recording is loaded into memory for
@@ -78,12 +81,11 @@ an empty recording instead of starting inference.
 
 ## Devices and troubleshooting
 
-On Apple Silicon, `--device auto` selects GPU acceleration: Nemotron runs through
-MLX's Metal backend and Whisper uses PyTorch MPS. These are separate runtimes using
-the same Apple GPU. `--device mps` explicitly selects this combination; `--device cpu`
-forces both models onto CPU. Auto selection prefers CUDA when available, then MPS,
-then CPU; GPU use requires support in both installed runtimes. This setup is tested
-on Apple Silicon macOS.
+On Apple Silicon, `--device auto` runs both Parakeet and Nemotron through MLX's
+Metal GPU backend. `--device gpu` explicitly selects the GPU, and `--device mps`
+remains an alias for the Metal GPU. `--device cpu` forces both models onto CPU.
+Auto selection uses CPU if MLX cannot access a GPU. PyTorch is no longer required.
+This setup is tested on Apple Silicon macOS.
 
 If microphone capture fails, check the system's default input device and grant
 microphone access to your terminal/app. macOS and Windows sounddevice wheels include

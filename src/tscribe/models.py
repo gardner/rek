@@ -1,43 +1,40 @@
-"""MLX Nemotron diarization and Whisper word transcription."""
+"""MLX Nemotron diarization and English Parakeet v2 transcription."""
 
-from typing import TYPE_CHECKING, Literal, TypedDict, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from tscribe.audio import SAMPLE_RATE, Audio
-from tscribe.transcript import SpeakerTurn, Word
+from tscribe.transcript import SpeakerTurn, Word, merge_word_tokens
 
 if TYPE_CHECKING:
-    from mlx_audio.vad.models.nemotron_diarization.nemotron_diarization import Model
+    from mlx_audio.stt.models.nemo.alignment import AlignedResult
+    from mlx_audio.stt.models.parakeet.parakeet import Model as ParakeetModel
+    from mlx_audio.vad.models.nemotron_diarization.nemotron_diarization import (
+        Model as DiarizationModel,
+    )
 
 DIARIZATION_MODEL = "mlx-community/Nemotron-3-Diarization-8bit"
-DEFAULT_ASR_MODEL = "openai/whisper-base"
-type Device = Literal["auto", "cpu", "cuda", "mps"]
+DEFAULT_ASR_MODEL = "mlx-community/parakeet-tdt-0.6b-v2"
+type Device = Literal["auto", "cpu", "gpu", "cuda", "mps"]
+type InferenceDevice = Literal["cpu", "gpu"]
 
 
-class WordChunk(TypedDict):
-    timestamp: tuple[float | None, float | None]
-    text: str
-
-
-class ASRResult(TypedDict):
-    text: str
-    chunks: list[WordChunk]
-
-
-def resolve_device(requested: Device) -> str:
-    import torch
+def resolve_device(requested: Device) -> InferenceDevice:
+    import mlx.core as mx
 
     if requested == "auto":
-        if torch.cuda.is_available():
-            return "cuda"
-        return "mps" if torch.backends.mps.is_available() else "cpu"
-    if requested == "cuda" and not torch.cuda.is_available():
-        raise ValueError("CUDA is unavailable. Use --device cpu or --device auto.")
-    if requested == "mps" and not torch.backends.mps.is_available():
-        raise ValueError("MPS is unavailable. Use --device cpu or --device auto.")
-    return requested
+        return "gpu" if mx.is_available(mx.gpu) else "cpu"
+    if requested == "cpu":
+        return "cpu"
+    if requested == "mps" and not mx.metal.is_available():
+        raise ValueError("MLX Metal is unavailable. Use --device cpu or --device auto.")
+    if requested == "cuda" and not mx.cuda.is_available():
+        raise ValueError("MLX CUDA is unavailable. Use --device cpu or --device auto.")
+    if not mx.is_available(mx.gpu):
+        raise ValueError("The MLX GPU is unavailable. Use --device cpu.")
+    return "gpu"
 
 
-def diarize(audio: Audio, device: str) -> list[SpeakerTurn]:
+def diarize(audio: Audio, device: InferenceDevice) -> list[SpeakerTurn]:
     import mlx.core as mx
     from mlx_audio.vad import load
 
@@ -48,7 +45,7 @@ def diarize(audio: Audio, device: str) -> list[SpeakerTurn]:
     print(f"Identifying speakers with {DIARIZATION_MODEL} on {backend}...", flush=True)
     # Scope loading and inference to the chosen MLX device without changing global defaults.
     with mx.stream(mlx_device):
-        model = cast("Model", load(DIARIZATION_MODEL, strict=True))
+        model = cast("DiarizationModel", load(DIARIZATION_MODEL, strict=True))
         result = model.generate(audio, sample_rate=SAMPLE_RATE)
     return [
         SpeakerTurn(segment.start, segment.end, f"Speaker {segment.speaker + 1}")
@@ -57,30 +54,35 @@ def diarize(audio: Audio, device: str) -> list[SpeakerTurn]:
 
 
 def transcribe(
-    audio: Audio, device: str, model_id: str = DEFAULT_ASR_MODEL, language: str | None = None
+    audio: Audio,
+    device: InferenceDevice,
+    model_id: str = DEFAULT_ASR_MODEL,
+    language: str | None = "en",
 ) -> list[Word]:
-    from transformers import pipeline
+    if language is not None and language.lower() not in {"en", "english"}:
+        raise ValueError("Parakeet v2 supports English only.")
+    import mlx.core as mx
+    from mlx_audio.stt import load
 
-    print(f"Transcribing with {model_id} on {device}...", flush=True)
-    recognizer = pipeline(
-        "automatic-speech-recognition",
-        model=model_id,
-        device=device,
-        model_kwargs={"attn_implementation": "eager"},
+    print(f"Transcribing English with {model_id} on MLX {device.upper()}...", flush=True)
+    with mx.stream(mx.cpu if device == "cpu" else mx.gpu):
+        model = cast("ParakeetModel", load(model_id, strict=True))
+        if model.preprocessor_config.sample_rate != SAMPLE_RATE:
+            raise ValueError("The Parakeet model must accept 16 kHz audio.")
+        # Bound attention memory and let MLX Audio merge overlapping chunk timestamps.
+        result = cast(
+            "AlignedResult",
+            model.generate(
+                mx.array(audio), dtype=mx.float32, chunk_duration=30.0, overlap_duration=2.0
+            ),
+        )
+    words = merge_word_tokens(
+        [
+            Word(token.start, token.end, token.text)
+            for sentence in result.sentences
+            for token in sentence.tokens
+        ]
     )
-    options = {"task": "transcribe"}
-    if language:
-        options["language"] = language
-    # Whisper's sequential long-form decoding handles recordings longer than 30s.
-    result = cast(
-        ASRResult,
-        recognizer(
-            {"raw": audio, "sampling_rate": SAMPLE_RATE},
-            return_timestamps="word",
-            generate_kwargs=options,
-        ),
-    )
-    chunks = result.get("chunks", [])
-    if not chunks and result["text"].strip():
-        return [Word(None, None, result["text"])]
-    return [Word(*chunk["timestamp"], chunk["text"]) for chunk in chunks]
+    if not words and result.text.strip():
+        return [Word(None, None, result.text)]
+    return words

@@ -28,6 +28,25 @@ class Utterance:
     text: str
 
 
+def merge_word_tokens(tokens: Sequence[Word]) -> list[Word]:
+    """Join Parakeet subword pieces, preserving punctuation and word boundaries."""
+    words: list[Word] = []
+    new_word = True
+    for token in tokens:
+        if not token.text:
+            continue
+        if not token.text.strip():
+            new_word = True
+            continue
+        if new_word or token.text[0].isspace():
+            words.append(Word(token.start, token.end, " " + token.text.lstrip()))
+        else:
+            previous = words[-1]
+            words[-1] = replace(previous, end=token.end, text=previous.text + token.text)
+        new_word = False
+    return words
+
+
 def _speaker_for(word: Word, turns: Sequence[SpeakerTurn]) -> str:
     if word.start is None or word.end is None or word.end < word.start:
         return "Unknown"
@@ -59,9 +78,10 @@ def align_words(words: Sequence[Word], turns: Sequence[SpeakerTurn]) -> list[Utt
             and previous.end is not None
             and word.start is not None
             and word.end is not None
-            and 0 <= word.start - previous.end <= 1.0
+            # Adjacent Parakeet boundaries may differ by floating-point roundoff.
+            and -1e-6 <= word.start - previous.end <= 1.0
         ):
-            # Whisper retains leading spaces and punctuation in its word chunks.
+            # Word text retains its leading space and punctuation.
             utterances[-1] = replace(previous, end=word.end, text=previous.text + word.text)
         else:
             utterances.append(Utterance(word.start, word.end, speaker, word.text.strip()))
