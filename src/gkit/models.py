@@ -3,18 +3,18 @@
 import sys
 from typing import Literal, Protocol
 
-from tscribe.audio import SAMPLE_RATE, Audio
-from tscribe.diarization import diarize as diarize
-from tscribe.model_files import (
+from gkit.audio import SAMPLE_RATE, Audio
+from gkit.diarization import diarize as diarize
+from gkit.model_files import (
     DEFAULT_ASR_MODEL as DEFAULT_ASR_MODEL,
 )
-from tscribe.model_files import (
+from gkit.model_files import (
     DIARIZATION_MODEL as DIARIZATION_MODEL,
 )
-from tscribe.model_files import (
+from gkit.model_files import (
     model_file,
 )
-from tscribe.transcript import Word, merge_word_tokens
+from gkit.transcript import Word, merge_word_tokens
 
 type Device = Literal["auto", "cpu", "gpu", "cuda", "mps", "coreml"]
 type InferenceDevice = Literal["cpu", "coreml"]

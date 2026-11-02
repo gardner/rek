@@ -7,8 +7,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from tscribe.cli import Options, main, parse_args, run
-from tscribe.transcript import SpeakerTurn, Word
+from gkit.cli import Options, main, parse_args, run
+from gkit.transcript import SpeakerTurn, Word
 
 
 def test_defaults_to_english_parakeet_v2() -> None:
@@ -42,10 +42,10 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     )
     samples = np.zeros(16_000, dtype=np.float32)
     with (
-        patch("tscribe.cli.resolve_device", return_value="cpu"),
-        patch("tscribe.cli.record_audio", return_value=samples) as record,
-        patch("tscribe.cli.diarize", return_value=[SpeakerTurn(0.0, 1.0, "Speaker 1")]),
-        patch("tscribe.cli.transcribe", return_value=[Word(0.1, 0.8, " Hello.")]),
+        patch("gkit.cli.resolve_device", return_value="cpu"),
+        patch("gkit.cli.record_audio", return_value=samples) as record,
+        patch("gkit.cli.diarize", return_value=[SpeakerTurn(0.0, 1.0, "Speaker 1")]),
+        patch("gkit.cli.transcribe", return_value=[Word(0.1, 0.8, " Hello.")]),
     ):
         assert run(options) == output
     record.assert_called_once_with(output / "recording.wav")
@@ -62,11 +62,11 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
 def test_file_input_skips_recording_and_silence_skips_asr(tmp_path: Path) -> None:
     options = Options(tmp_path / "input.wav", tmp_path / "out", "cpu", "unused", None)
     with (
-        patch("tscribe.cli.resolve_device", return_value="cpu"),
-        patch("tscribe.cli.load_audio", return_value=np.zeros(16_000, dtype=np.float32)),
-        patch("tscribe.cli.record_audio") as record,
-        patch("tscribe.cli.diarize", return_value=[]),
-        patch("tscribe.cli.transcribe") as asr,
+        patch("gkit.cli.resolve_device", return_value="cpu"),
+        patch("gkit.cli.load_audio", return_value=np.zeros(16_000, dtype=np.float32)),
+        patch("gkit.cli.record_audio") as record,
+        patch("gkit.cli.diarize", return_value=[]),
+        patch("gkit.cli.transcribe") as asr,
     ):
         output = run(options)
     record.assert_not_called()
@@ -76,7 +76,7 @@ def test_file_input_skips_recording_and_silence_skips_asr(tmp_path: Path) -> Non
 
 def test_existing_output_is_not_overwritten(tmp_path: Path) -> None:
     options = Options(None, tmp_path, "cpu", "unused", None)
-    with patch("tscribe.cli.resolve_device", return_value="cpu"):
+    with patch("gkit.cli.resolve_device", return_value="cpu"):
         with pytest.raises(FileExistsError):
             run(options)
 
@@ -86,10 +86,10 @@ def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
         None, tmp_path / "out", "cpu", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "en"
     )
     with (
-        patch("tscribe.cli.resolve_device", return_value="cpu"),
+        patch("gkit.cli.resolve_device", return_value="cpu"),
         patch("sounddevice.InputStream") as input_stream,
-        patch("tscribe.cli.diarize", return_value=[SpeakerTurn(0.0, 0.1, "Speaker 1")]),
-        patch("tscribe.cli.transcribe", return_value=[Word(0.0, 0.1, " Hello.")]) as asr,
+        patch("gkit.cli.diarize", return_value=[SpeakerTurn(0.0, 0.1, "Speaker 1")]),
+        patch("gkit.cli.transcribe", return_value=[Word(0.0, 0.1, " Hello.")]) as asr,
     ):
         stream = input_stream.return_value.__enter__.return_value
         stream.read.side_effect = [
@@ -103,7 +103,7 @@ def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
 
 
 def test_ctrl_c_during_processing_still_cancels() -> None:
-    with patch("tscribe.cli.run", side_effect=KeyboardInterrupt):
+    with patch("gkit.cli.run", side_effect=KeyboardInterrupt):
         with pytest.raises(SystemExit) as error:
             main([])
     assert error.value.code == 130
@@ -150,11 +150,11 @@ def test_positional_file_runs_complete_pipeline_with_defaults(tmp_path: Path) ->
     samples = np.zeros(16_000, dtype=np.float32)
     options = parse_args([str(audio), "--output-dir", str(tmp_path / "transcript")])
     with (
-        patch("tscribe.cli.resolve_device", return_value="coreml") as resolve,
-        patch("tscribe.cli.load_audio", return_value=samples) as load,
-        patch("tscribe.cli.record_audio") as record,
-        patch("tscribe.cli.diarize", return_value=[SpeakerTurn(0, 1, "Speaker 1")]) as diarize,
-        patch("tscribe.cli.transcribe", return_value=[Word(0, 1, " Hello.")]) as transcribe,
+        patch("gkit.cli.resolve_device", return_value="coreml") as resolve,
+        patch("gkit.cli.load_audio", return_value=samples) as load,
+        patch("gkit.cli.record_audio") as record,
+        patch("gkit.cli.diarize", return_value=[SpeakerTurn(0, 1, "Speaker 1")]) as diarize,
+        patch("gkit.cli.transcribe", return_value=[Word(0, 1, " Hello.")]) as transcribe,
     ):
         output = run(options)
     resolve.assert_called_once_with("auto")

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tscribe.model_files import DEFAULT_ASR_MODEL, model_file
+from gkit.model_files import DEFAULT_ASR_MODEL, model_file
 
 
 def test_local_directory_uses_existing_file(tmp_path: Path) -> None:

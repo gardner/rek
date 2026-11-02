@@ -1,5 +1,5 @@
 [project]
-name = "tscribe"
+name = "gkit"
 version = "0.1.0"
 description = "Local English transcription and speaker diarization with ONNX Runtime"
 readme = "README.md"
@@ -14,8 +14,12 @@ dependencies = [
     "soundfile>=0.14.0",
 ]
 
+[project.urls]
+Repository = "https://github.com/gardner/gkit"
+Issues = "https://github.com/gardner/gkit/issues"
+
 [project.scripts]
-tscribe = "tscribe:main"
+gkit = "gkit:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
@@ -41,7 +45,7 @@ max-complexity = 10
 [tool.pyright]
 include = ["main.py", "src", "scripts"]
 typeCheckingMode = "basic"
-strict = ["src/tscribe/transcript.py"]
+strict = ["src/gkit/transcript.py"]
 pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"

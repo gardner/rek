@@ -8,8 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import cast
 
-from tscribe.audio import load_audio, record_audio
-from tscribe.models import (
+from gkit.audio import load_audio, record_audio
+from gkit.models import (
     DEFAULT_ASR_MODEL,
     DIARIZATION_MODEL,
     Device,
@@ -17,7 +17,7 @@ from tscribe.models import (
     resolve_device,
     transcribe,
 )
-from tscribe.transcript import align_words, render_transcript
+from gkit.transcript import align_words, render_transcript
 
 
 @dataclass(frozen=True)
@@ -31,10 +31,10 @@ class Options:
 
 def parse_args(argv: list[str] | None = None) -> Options:
     parser = argparse.ArgumentParser(
-        prog="tscribe",
+        prog="gkit",
         description="Transcribe an audio file with timestamps and speaker labels. "
         "Without a file, record your microphone until Ctrl+C.",
-        epilog="Example: tscribe 'Voice Memo.m4a'. Models download automatically on first use. "
+        epilog="Example: gkit 'Voice Memo.m4a'. Models download automatically on first use. "
         "Defaults: English, Nemotron speaker detection, Parakeet transcription, "
         "Core ML on macOS and CPU elsewhere.",
     )

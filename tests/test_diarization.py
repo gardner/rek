@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from tscribe.diarization import diarize, speaker_turns
-from tscribe.speaker_cache import SpeakerCache
-from tscribe.transcript import SpeakerTurn
+from gkit.diarization import diarize, speaker_turns
+from gkit.speaker_cache import SpeakerCache
+from gkit.transcript import SpeakerTurn
 
 
 def test_overlapping_speakers_and_final_segment_are_preserved() -> None:
@@ -51,10 +51,8 @@ def test_onnx_provider_and_external_weights(device: str) -> None:
     ]
     with (
         patch.dict("sys.modules", {"onnxruntime": backend}),
-        patch("tscribe.diarization.model_file", side_effect=lambda _, name: name) as download,
-        patch(
-            "tscribe.diarization.mel_features", return_value=np.zeros((5, 128), dtype=np.float32)
-        ),
+        patch("gkit.diarization.model_file", side_effect=lambda _, name: name) as download,
+        patch("gkit.diarization.mel_features", return_value=np.zeros((5, 128), dtype=np.float32)),
     ):
         turns = diarize(np.zeros(800, dtype=np.float32), device)
     assert len(turns) == 8
@@ -84,9 +82,9 @@ def test_chunk_cache_and_lookahead_do_not_duplicate_output() -> None:
     ]
     with (
         patch.dict("sys.modules", {"onnxruntime": backend}),
-        patch("tscribe.diarization.model_file", return_value="model.onnx"),
+        patch("gkit.diarization.model_file", return_value="model.onnx"),
         patch(
-            "tscribe.diarization.mel_features", return_value=np.zeros((2800, 128), dtype=np.float32)
+            "gkit.diarization.mel_features", return_value=np.zeros((2800, 128), dtype=np.float32)
         ),
     ):
         turns = diarize(np.zeros(28 * 16_000, dtype=np.float32), "cpu")
