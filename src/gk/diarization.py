@@ -5,10 +5,10 @@ from typing import Literal, cast
 
 import numpy as np
 
-from gkit.audio import SAMPLE_RATE, Audio
-from gkit.model_files import DIARIZATION_MODEL, model_file
-from gkit.speaker_cache import SUBSAMPLING, FloatArray, SpeakerCache
-from gkit.transcript import SpeakerTurn
+from gk.audio import SAMPLE_RATE, Audio
+from gk.model_files import DIARIZATION_MODEL, model_file
+from gk.speaker_cache import SUBSAMPLING, FloatArray, SpeakerCache
+from gk.transcript import SpeakerTurn
 
 _HOP = 160
 _CHUNK_FRAMES = 340 * SUBSAMPLING

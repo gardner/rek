@@ -1,4 +1,4 @@
-# gkit
+# gk
 
 Record your microphone, then transcribe locally with timestamps and speaker labels.
 Inference uses ONNX Runtime (with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) for ASR),
@@ -36,7 +36,7 @@ uv tool install .
 Then just give it a filename:
 
 ```sh
-gkit "Voice Memo.m4a"
+gk "Voice Memo.m4a"
 ```
 
 No model, language, device, speaker-count, or tuning flags are required. The command
@@ -44,7 +44,7 @@ downloads the models if needed, decodes and normalizes the audio, detects speake
 transcribes speech, and saves both text and JSON in a new `recordings/<timestamp>/`
 directory under your current working directory. It prints the transcript and output
 location when finished. First use needs internet access for the model downloads.
-If your shell cannot find `gkit` after installation, run `uv tool update-shell`
+If your shell cannot find `gk` after installation, run `uv tool update-shell`
 and reopen your terminal.
 
 You can also run directly from the checkout without installing the command:
@@ -69,7 +69,7 @@ The defaults are:
 These use the model's published settings and bounded inference windows; they are
 starting defaults, not benchmark-tuned settings for a particular machine.
 
-Run `gkit` without a filename to record your default microphone until **Ctrl+C**.
+Run `gk` without a filename to record your default microphone until **Ctrl+C**.
 Start speaking when you see **“Recording”**. Ctrl+C finishes saving the WAV and starts
 transcription. There is no duration limit or `--seconds` option.
 
@@ -81,9 +81,9 @@ then set `HF_HUB_OFFLINE=1`.
 Overrides are optional, mainly for troubleshooting or changing the destination:
 
 ```sh
-gkit meeting.wav --output-dir recordings/meeting
-gkit meeting.wav --device cpu
-gkit --help
+gk meeting.wav --output-dir recordings/meeting
+gk meeting.wav --device cpu
+gk --help
 ```
 
 The older `--input filename` syntax remains supported.

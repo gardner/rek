@@ -8,7 +8,7 @@ import pytest
 import sounddevice as sd
 import soundfile as sf
 
-from gkit.audio import SAMPLE_RATE, load_audio, record_audio
+from gk.audio import SAMPLE_RATE, load_audio, record_audio
 
 
 def test_loads_stereo_at_another_rate_as_16khz_mono(tmp_path: Path) -> None:
