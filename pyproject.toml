@@ -15,8 +15,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/gardner/gkit"
-Issues = "https://github.com/gardner/gkit/issues"
+Repository = "https://github.com/gardner/gk"
+Issues = "https://github.com/gardner/gk/issues"
 
 [project.scripts]
 gk = "gk:main"

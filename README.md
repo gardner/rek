@@ -1,5 +1,7 @@
 # gk
 
+[GitHub repository](https://github.com/gardner/gk) · [Issues](https://github.com/gardner/gk/issues)
+
 Record your microphone, then transcribe locally with timestamps and speaker labels.
 Inference uses ONNX Runtime (with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) for ASR),
 with Core ML acceleration by default on macOS and CPU inference on Linux/Windows.
