@@ -186,7 +186,7 @@ complexity limit of 10, Pyright checks types, and source files are limited to 50
 
 ## Publishing
 
-Releases publish the `rek` distribution through GitHub Actions OIDC. No PyPI API
+Version tags publish the `rek` distribution through GitHub Actions OIDC. No PyPI API
 token or password is stored in GitHub. Configure a PyPI Trusted Publisher with:
 
 | Field | Value |
@@ -202,10 +202,19 @@ register a pending publisher in your PyPI account's Publishing settings. See the
 [PyPI Trusted Publishing guide](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
 
 To release, update `version` in `pyproject.toml`, run `uv lock`, and commit and push
-the changes. Then publish a GitHub release with the matching tag, such as `v0.1.0`.
+the changes. Create and push a matching version tag:
+
+```sh
+git tag -a v0.1.1 -m "Release rek 0.1.1"
+git push origin v0.1.1
+```
+
+This example assumes `version = "0.1.1"` has already been committed.
 The workflow checks that the tag matches the package version, builds a wheel and
 source distribution, and publishes them from a separate job with `id-token: write`.
-Pushing commits or tags alone does not publish; a GitHub release must be published.
+Pushing a `v*` tag triggers publishing automatically; no GitHub release is required.
+Ordinary branch pushes do not publish. The tag must point to a commit containing
+this tag-triggered workflow; tags pushed before that change are not retriggered.
 Each new PyPI release needs a new version. The workflow does not run tests.
 
 Once published, users can install and run the command with:
