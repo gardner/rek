@@ -21,9 +21,15 @@ def model_file(model_id: str, filename: str) -> str:
             raise ValueError(f"Model directory is missing {filename}: {directory}")
         return str(path.resolve())
 
-    from huggingface_hub import hf_hub_download
+    from huggingface_hub import constants, hf_hub_download
 
     try:
+        if model_id == DIARIZATION_MODEL:
+            # ORT validates external-data paths after resolving symlinks. Hub cache
+            # blobs live in separate directories, so download a regular-file bundle.
+            revision = _REVISIONS[model_id]
+            local_dir = Path(constants.HF_HUB_CACHE) / "rek" / revision
+            return hf_hub_download(model_id, filename, revision=revision, local_dir=local_dir)
         return hf_hub_download(model_id, filename, revision=_REVISIONS.get(model_id))
     except Exception as error:
         raise RuntimeError(f"Could not load {filename} from {model_id}: {error}") from error

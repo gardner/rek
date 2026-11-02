@@ -35,3 +35,17 @@ def test_download_failure_has_model_context() -> None:
     with patch("huggingface_hub.hf_hub_download", side_effect=OSError("offline")):
         with pytest.raises(RuntimeError, match="Could not load encoder.int8.onnx"):
             model_file(DEFAULT_ASR_MODEL, "encoder.int8.onnx")
+
+
+def test_nemotron_assets_share_a_materialized_directory(tmp_path: Path) -> None:
+    from rek.model_files import DIARIZATION_MODEL
+
+    with (
+        patch("huggingface_hub.constants.HF_HUB_CACHE", str(tmp_path)),
+        patch("huggingface_hub.hf_hub_download", return_value="model.onnx") as download,
+    ):
+        model_file(DIARIZATION_MODEL, "onnx/model.onnx")
+        model_file(DIARIZATION_MODEL, "onnx/model.onnx_data")
+    directories = [call.kwargs["local_dir"] for call in download.call_args_list]
+    assert directories[0] == directories[1]
+    assert directories[0] == tmp_path / "rek" / "353b6f8ad2cac3580e982d7fbdf0a010786b0406"
