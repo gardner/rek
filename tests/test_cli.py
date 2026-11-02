@@ -107,3 +107,60 @@ def test_ctrl_c_during_processing_still_cancels() -> None:
         with pytest.raises(SystemExit) as error:
             main([])
     assert error.value.code == 130
+
+
+def test_positional_m4a_uses_automatic_defaults(tmp_path: Path) -> None:
+    audio = tmp_path / "Voice Memo.m4a"
+    audio.touch()
+    options = parse_args([str(audio)])
+    assert options.input == audio
+    assert options.output_dir is None
+    assert options.device == "auto"
+    assert options.language == "en"
+    assert options.asr_model == "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+
+
+def test_no_filename_keeps_microphone_mode() -> None:
+    assert parse_args([]).input is None
+
+
+def test_legacy_input_option_still_works(tmp_path: Path) -> None:
+    audio = tmp_path / "meeting.wav"
+    audio.touch()
+    assert parse_args(["--input", str(audio)]).input == audio
+
+
+def test_two_input_sources_are_rejected(tmp_path: Path) -> None:
+    audio = tmp_path / "meeting.wav"
+    audio.touch()
+    with pytest.raises(SystemExit) as error:
+        parse_args([str(audio), "--input", str(audio)])
+    assert error.value.code == 2
+
+
+def test_missing_positional_file_is_a_usage_error(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit) as error:
+        parse_args([str(tmp_path / "missing.m4a")])
+    assert error.value.code == 2
+
+
+def test_positional_file_runs_complete_pipeline_with_defaults(tmp_path: Path) -> None:
+    audio = tmp_path / "meeting.m4a"
+    audio.touch()
+    samples = np.zeros(16_000, dtype=np.float32)
+    options = parse_args([str(audio), "--output-dir", str(tmp_path / "transcript")])
+    with (
+        patch("tscribe.cli.resolve_device", return_value="coreml") as resolve,
+        patch("tscribe.cli.load_audio", return_value=samples) as load,
+        patch("tscribe.cli.record_audio") as record,
+        patch("tscribe.cli.diarize", return_value=[SpeakerTurn(0, 1, "Speaker 1")]) as diarize,
+        patch("tscribe.cli.transcribe", return_value=[Word(0, 1, " Hello.")]) as transcribe,
+    ):
+        output = run(options)
+    resolve.assert_called_once_with("auto")
+    load.assert_called_once_with(audio)
+    record.assert_not_called()
+    diarize.assert_called_once_with(samples, "coreml")
+    transcribe.assert_called_once_with(samples, "coreml", options.asr_model, "en")
+    assert (output / "transcript.txt").is_file()
+    assert (output / "transcript.json").is_file()

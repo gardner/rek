@@ -26,41 +26,67 @@ has **not been runtime-tested**, including on Linux or Windows.
 
 ## Run
 
-Install [uv](https://docs.astral.sh/uv/getting-started/installation/), then run:
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and FFmpeg
+(see below). From this checkout, install the command once:
 
 ```sh
-uv run main.py
+uv tool install .
 ```
 
-This installs dependencies and records from your default microphone until you
-press **Ctrl+C**. Start speaking when you see **“Recording”**. Ctrl+C stops recording,
-finishes saving the WAV, and starts transcription. There is no duration limit or
-`--seconds` option.
+Then just give it a filename:
 
-The project uses Python 3.14; uv can install it automatically. The first inference
-downloads the required ONNX files from Hugging Face; later runs use its local cache.
-Built-in model revisions are pinned. Audio stays on your computer. To relocate the
-model cache, set `HF_HOME` before running. For offline use, populate the cache first,
+```sh
+tscribe "Voice Memo.m4a"
+```
+
+No model, language, device, speaker-count, or tuning flags are required. The command
+downloads the models if needed, decodes and normalizes the audio, detects speakers,
+transcribes speech, and saves both text and JSON in a new `recordings/<timestamp>/`
+directory under your current working directory. It prints the transcript and output
+location when finished. First use needs internet access for the model downloads.
+If your shell cannot find `tscribe` after installation, run `uv tool update-shell`
+and reopen your terminal.
+
+You can also run directly from the checkout without installing the command:
+
+```sh
+uv run main.py "Voice Memo.m4a"
+```
+
+The defaults are:
+
+| Setting | Default |
+| --- | --- |
+| Hardware | Core ML on macOS; CPU on Linux/Windows |
+| Speech recognition | English Parakeet v2 INT8, greedy decoding |
+| Speaker detection | Nemotron 3 FP32, up to eight speakers automatically |
+| Diarization windows | Published offline settings: 27.2 s + 3.2 s look-ahead, persistent speaker cache |
+| Speaker activity | Probability above 0.5, at 10 ms resolution |
+| Transcription windows | 30 s with 2 s context on each side |
+| Audio | Automatic mono mixing and resampling to 16 kHz |
+| Output | Timestamped text and JSON; existing output folders are never overwritten |
+
+These use the model's published settings and bounded inference windows; they are
+starting defaults, not benchmark-tuned settings for a particular machine.
+
+Run `tscribe` without a filename to record your default microphone until **Ctrl+C**.
+Start speaking when you see **“Recording”**. Ctrl+C finishes saving the WAV and starts
+transcription. There is no duration limit or `--seconds` option.
+
+The project uses Python 3.14; uv can install it automatically. Built-in model revisions
+are pinned. Later runs reuse the Hugging Face cache, and audio stays on your computer.
+To relocate the cache, set `HF_HOME`. For offline use, populate the cache first,
 then set `HF_HUB_OFFLINE=1`.
 
+Overrides are optional, mainly for troubleshooting or changing the destination:
+
 ```sh
-# Process an existing file without opening the microphone.
-uv run main.py --input meeting.wav
-
-# Transcribe an Apple Voice Memo directly; conversion is automatic.
-uv run main.py --input "Voice Memo.m4a"
-
-# Choose a new output directory.
-uv run main.py --input meeting.wav --output-dir recordings/meeting
-
-# Explicit CPU selection on any platform.
-uv run main.py --input meeting.wav --device cpu
-
-# Explicit Core ML acceleration on macOS (mps and gpu are aliases).
-uv run main.py --input meeting.wav --device coreml
-
-uv run main.py --help
+tscribe meeting.wav --output-dir recordings/meeting
+tscribe meeting.wav --device cpu
+tscribe --help
 ```
+
+The older `--input filename` syntax remains supported.
 
 `--asr-model` accepts a compatible sherpa-onnx Parakeet v2 INT8 Hugging Face
 repository or local directory containing `encoder.int8.onnx`, `decoder.int8.onnx`,

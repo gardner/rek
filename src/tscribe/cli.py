@@ -31,26 +31,31 @@ class Options:
 
 def parse_args(argv: list[str] | None = None) -> Options:
     parser = argparse.ArgumentParser(
-        description="Record until Ctrl+C, then transcribe audio with speaker labels."
+        prog="tscribe",
+        description="Transcribe an audio file with timestamps and speaker labels. "
+        "Without a file, record your microphone until Ctrl+C.",
+        epilog="Example: tscribe 'Voice Memo.m4a'. Models download automatically on first use. "
+        "Defaults: English, Nemotron speaker detection, Parakeet transcription, "
+        "Core ML on macOS and CPU elsewhere.",
     )
-    parser.add_argument(
-        "--input", type=Path, help="Transcribe an audio file (including M4A) instead."
-    )
+    parser.add_argument("file", nargs="?", type=Path, help="Audio file, including M4A.")
+    parser.add_argument("--input", type=Path, help=argparse.SUPPRESS)
     parser.add_argument(
         "--output-dir", type=Path, help="New output directory (default: recordings/<time>)."
     )
-    parser.add_argument(
+    advanced = parser.add_argument_group("optional overrides (defaults need no flags)")
+    advanced.add_argument(
         "--device",
         choices=["auto", "gpu", "cpu", "cuda", "mps", "coreml"],
         default="auto",
         help="ONNX provider (auto: Core ML on macOS, CPU elsewhere; mps/gpu alias Core ML).",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--asr-model",
         default=DEFAULT_ASR_MODEL,
         help="Sherpa ONNX Parakeet v2 INT8 repository ID or local model directory.",
     )
-    parser.add_argument(
+    advanced.add_argument(
         "--language",
         type=str.lower,
         choices=["en", "english"],
@@ -58,8 +63,10 @@ def parse_args(argv: list[str] | None = None) -> Options:
         help="Parakeet v2 is English-only (default: en).",
     )
     args = parser.parse_args(argv)
+    if args.file is not None and args.input is not None:
+        parser.error("Specify the audio file once: either a filename or --input, not both.")
     options = Options(
-        args.input,
+        args.file if args.file is not None else args.input,
         args.output_dir,
         cast(Device, args.device),
         args.asr_model,
