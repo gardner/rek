@@ -13,7 +13,7 @@ from tscribe.transcript import SpeakerTurn, Word
 
 def test_defaults_to_english_parakeet_v2() -> None:
     options = parse_args([])
-    assert options.asr_model == "mlx-community/parakeet-tdt-0.6b-v2"
+    assert options.asr_model == "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
     assert options.language == "en"
 
 
@@ -37,7 +37,9 @@ def test_missing_input_is_a_usage_error(tmp_path: Path) -> None:
 
 def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     output = tmp_path / "result"
-    options = Options(None, output, "cpu", "mlx-community/parakeet-tdt-0.6b-v2", "en")
+    options = Options(
+        None, output, "cpu", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "en"
+    )
     samples = np.zeros(16_000, dtype=np.float32)
     with (
         patch("tscribe.cli.resolve_device", return_value="cpu"),
@@ -49,8 +51,8 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     record.assert_called_once_with(output / "recording.wav")
     assert "Speaker 1: Hello." in (output / "transcript.txt").read_text()
     data = json.loads((output / "transcript.json").read_text())
-    assert data["diarization_model"] == "mlx-community/Nemotron-3-Diarization-8bit"
-    assert data["asr_model"] == "mlx-community/parakeet-tdt-0.6b-v2"
+    assert data["diarization_model"] == "csukuangfj/sherpa-onnx-pyannote-segmentation-3-0"
+    assert data["asr_model"] == "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
     assert data["transcript"][0]["text"] == "Hello."
     assert data["speaker_turns"][0]["speaker"] == "Speaker 1"
 
@@ -78,7 +80,9 @@ def test_existing_output_is_not_overwritten(tmp_path: Path) -> None:
 
 
 def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
-    options = Options(None, tmp_path / "out", "cpu", "mlx-community/parakeet-tdt-0.6b-v2", "en")
+    options = Options(
+        None, tmp_path / "out", "cpu", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "en"
+    )
     with (
         patch("tscribe.cli.resolve_device", return_value="cpu"),
         patch("sounddevice.InputStream") as input_stream,

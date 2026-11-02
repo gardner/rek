@@ -74,7 +74,9 @@ def _load_m4a(path: Path) -> Audio:
         )
     except FileNotFoundError as error:
         raise RuntimeError(
-            "M4A input requires FFmpeg on PATH. On macOS, install it with: brew install ffmpeg"
+            "M4A input requires FFmpeg on PATH. Install FFmpeg with your system package manager "
+            "(macOS: brew install ffmpeg; Debian/Ubuntu: sudo apt install ffmpeg; "
+            "Windows: winget install Gyan.FFmpeg)."
         ) from error
     except subprocess.CalledProcessError as error:
         detail = error.stderr.decode(errors="replace").strip()

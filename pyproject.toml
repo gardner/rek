@@ -1,14 +1,14 @@
 [project]
 name = "tscribe"
 version = "0.1.0"
-description = "Local English transcription with MLX Parakeet v2 and Nemotron speaker diarization"
+description = "Local English transcription and speaker diarization with ONNX Runtime"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "huggingface-hub>=1.33.0",
     "librosa>=1.0.0",
-    "mlx>=0.32.3",
-    "mlx-audio>=0.5.8",
     "numpy>=2.5.3",
+    "sherpa-onnx>=2.0.1",
     "sounddevice>=0.5.6",
     "soundfile>=0.14.0",
 ]

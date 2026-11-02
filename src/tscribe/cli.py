@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 from tscribe.audio import load_audio, record_audio
+from tscribe.model_files import EMBEDDING_FILE, EMBEDDING_MODEL
 from tscribe.models import (
     DEFAULT_ASR_MODEL,
     DIARIZATION_MODEL,
@@ -41,11 +42,15 @@ def parse_args(argv: list[str] | None = None) -> Options:
     )
     parser.add_argument(
         "--device",
-        choices=["auto", "gpu", "cpu", "cuda", "mps"],
+        choices=["auto", "gpu", "cpu", "cuda", "mps", "coreml"],
         default="auto",
-        help="MLX device (auto: GPU when available, otherwise CPU; mps/cuda are GPU aliases).",
+        help="ONNX provider (auto: Core ML on macOS, CPU elsewhere; mps/gpu alias Core ML).",
     )
-    parser.add_argument("--asr-model", default=DEFAULT_ASR_MODEL, help="MLX Parakeet model ID.")
+    parser.add_argument(
+        "--asr-model",
+        default=DEFAULT_ASR_MODEL,
+        help="Sherpa ONNX Parakeet v2 INT8 repository ID or local model directory.",
+    )
     parser.add_argument(
         "--language",
         type=str.lower,
@@ -75,7 +80,7 @@ def run(options: Options) -> Path:
     audio_path = options.input or output_dir / "recording.wav"
     audio = load_audio(audio_path) if options.input else record_audio(audio_path)
     turns = diarize(audio, device)
-    # Skip ASR when Nemotron detects no speech.
+    # Skip ASR when diarization detects no speech.
     words = transcribe(audio, device, options.asr_model, options.language) if turns else []
     utterances = align_words(words, turns)
     text = render_transcript(utterances)
@@ -83,6 +88,10 @@ def run(options: Options) -> Path:
     data = {
         "audio_file": str(audio_path.resolve()),
         "diarization_model": DIARIZATION_MODEL,
+        "embedding_model": EMBEDDING_MODEL,
+        "embedding_file": EMBEDDING_FILE,
+        "backend": "sherpa-onnx",
+        "device": device,
         "asr_model": options.asr_model,
         "speaker_turns": [asdict(turn) for turn in turns],
         "words": [asdict(word) for word in words],
