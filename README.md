@@ -1,16 +1,25 @@
 # tscribe
 
 Record your microphone, then transcribe locally with timestamps and speaker labels.
-Inference uses [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), backed by ONNX Runtime,
+Inference uses ONNX Runtime (with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) for ASR),
 with Core ML acceleration by default on macOS and CPU inference on Linux/Windows.
 There is no MLX, PyTorch, or CUDA dependency.
 
 - [Parakeet TDT 0.6B v2 INT8](https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8)
   transcribes **English only**.
-- [Pyannote segmentation 3.0](https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0)
-  plus [NeMo TitaNet small speaker embeddings](https://huggingface.co/csukuangfj/speaker-embedding-models)
-  and clustering detect who spoke when. This replaces the previous MLX Nemotron
-  diarizer; speaker counts, boundaries, and accuracy can differ.
+- [Nemotron 3 Diarization ONNX](https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX)
+  detects up to eight speakers directly, replacing both Pyannote segmentation and
+  TitaNet embeddings/clustering. It runs in 27.2-second chunks with 3.2 seconds of
+  look-ahead and an arrival-order speaker cache carried across the full recording.
+  The NumPy/librosa frontend and cache follow the model's Transformers implementation;
+  PyTorch is not needed. Speaker activity is thresholded at 0.5 on 10 ms frames,
+  including overlapping speakers.
+
+Nemotron uses the FP32 graph and its external weights (about 398 MB), pinned to
+revision `353b6f8ad2cac3580e982d7fbdf0a010786b0406`. Both files are downloaded into
+the same cache directory so ONNX Runtime can resolve the external weights.
+The model is distributed under the [OpenMDW 1.1 license](https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX/blob/main/README.md).
+
 
 The dependencies are intended for macOS, Linux, and Windows. This ONNX migration
 has **not been runtime-tested**, including on Linux or Windows.
@@ -79,7 +88,7 @@ Each run creates a new `recordings/<timestamp>/` directory containing:
 - `recording.wav`: 16 kHz mono audio (microphone mode only).
 - `transcript.txt`: readable timestamped speaker turns, also printed to the terminal.
 - `transcript.json`: transcript, individual word timestamps, raw speaker turns,
-  model IDs, embedding filename, backend, device, and the original audio path.
+  model IDs, diarization graph filename, backends, requested device, and the original audio path.
 
 Example format:
 
@@ -118,7 +127,9 @@ can use Apple hardware acceleration; it is not PyTorch's MPS backend. Core ML ch
 the compute hardware, and unsupported ONNX operations run on CPU. In particular,
 quantized Parakeet operations may remain on CPU: selecting Core ML does not guarantee
 that the whole model runs on the GPU or that inference is faster. The bundled macOS
-runtime includes Core ML support. Custom runtimes without it may fall back to CPU.
+runtime includes Core ML support. Nemotron uses the Python ONNX Runtime package
+and falls back to CPU with a warning if Core ML is unavailable in that runtime.
+Custom sherpa-onnx runtimes without Core ML may also fall back to CPU.
 The JSON `device` field records the requested provider, not measured hardware usage.
 Core ML model compilation can add startup time. Use `--device cpu` if initialization
 fails or acceleration performs poorly. No acceleration benchmarks were run.

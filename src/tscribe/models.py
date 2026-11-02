@@ -4,6 +4,7 @@ import sys
 from typing import Literal, Protocol
 
 from tscribe.audio import SAMPLE_RATE, Audio
+from tscribe.diarization import diarize as diarize
 from tscribe.model_files import (
     DEFAULT_ASR_MODEL as DEFAULT_ASR_MODEL,
 )
@@ -11,11 +12,9 @@ from tscribe.model_files import (
     DIARIZATION_MODEL as DIARIZATION_MODEL,
 )
 from tscribe.model_files import (
-    EMBEDDING_FILE,
-    EMBEDDING_MODEL,
     model_file,
 )
-from tscribe.transcript import SpeakerTurn, Word, merge_word_tokens
+from tscribe.transcript import Word, merge_word_tokens
 
 type Device = Literal["auto", "cpu", "gpu", "cuda", "mps", "coreml"]
 type InferenceDevice = Literal["cpu", "coreml"]
@@ -41,41 +40,6 @@ def resolve_device(requested: Device) -> InferenceDevice:
         "Core ML acceleration is available on macOS only; CUDA is not configured. "
         "Use --device cpu or --device auto."
     )
-
-
-def diarize(audio: Audio, device: InferenceDevice) -> list[SpeakerTurn]:
-    import sherpa_onnx
-
-    print(
-        f"Identifying speakers with ONNX segmentation and TitaNet using the {device} provider...",
-        flush=True,
-    )
-    config = sherpa_onnx.OfflineSpeakerDiarizationConfig(
-        segmentation=sherpa_onnx.OfflineSpeakerSegmentationModelConfig(
-            pyannote=sherpa_onnx.OfflineSpeakerSegmentationPyannoteModelConfig(
-                model=model_file(DIARIZATION_MODEL, "model.onnx"),
-            ),
-            provider=device,
-            num_threads=4,
-        ),
-        embedding=sherpa_onnx.SpeakerEmbeddingExtractorConfig(
-            model=model_file(EMBEDDING_MODEL, EMBEDDING_FILE),
-            provider=device,
-            num_threads=4,
-        ),
-        clustering=sherpa_onnx.FastClusteringConfig(num_clusters=-1, threshold=0.5),
-        min_duration_on=0.3,
-        min_duration_off=0.5,
-    )
-    if not config.validate():
-        raise ValueError("Invalid ONNX diarization configuration; check the cached model files.")
-    model = sherpa_onnx.OfflineSpeakerDiarization(config)
-    if model.sample_rate != SAMPLE_RATE:
-        raise ValueError("The diarization model must accept 16 kHz audio.")
-    return [
-        SpeakerTurn(segment.start, segment.end, f"Speaker {segment.speaker + 1}")
-        for segment in model.process(audio).sort_by_start_time()
-    ]
 
 
 def _result_words(result: RecognitionResult, offset: float, duration: float) -> list[Word]:

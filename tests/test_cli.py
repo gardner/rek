@@ -51,8 +51,10 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     record.assert_called_once_with(output / "recording.wav")
     assert "Speaker 1: Hello." in (output / "transcript.txt").read_text()
     data = json.loads((output / "transcript.json").read_text())
-    assert data["diarization_model"] == "csukuangfj/sherpa-onnx-pyannote-segmentation-3-0"
+    assert data["diarization_model"] == "onnx-community/Nemotron-3-Diarization-ONNX"
     assert data["asr_model"] == "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+    assert "embedding_model" not in data
+    assert data["diarization_file"] == "onnx/model.onnx"
     assert data["transcript"][0]["text"] == "Hello."
     assert data["speaker_turns"][0]["speaker"] == "Speaker 1"
 

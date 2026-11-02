@@ -3,15 +3,12 @@
 from pathlib import Path
 
 DEFAULT_ASR_MODEL = "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
-DIARIZATION_MODEL = "csukuangfj/sherpa-onnx-pyannote-segmentation-3-0"
-EMBEDDING_MODEL = "csukuangfj/speaker-embedding-models"
-EMBEDDING_FILE = "nemo_en_titanet_small.onnx"
+DIARIZATION_MODEL = "onnx-community/Nemotron-3-Diarization-ONNX"
 
 # Keep the built-in exports reproducible; custom repositories use their default revision.
 _REVISIONS = {
     DEFAULT_ASR_MODEL: "1ab9323565ddb038682214b292f588070a538ce2",
-    DIARIZATION_MODEL: "9403a6902bb58e3d5ae8c7e77c3422de279db2e0",
-    EMBEDDING_MODEL: "0743f301363dec56491a490f6d6cbc9d67f9a3bf",
+    DIARIZATION_MODEL: "353b6f8ad2cac3580e982d7fbdf0a010786b0406",
 }
 
 

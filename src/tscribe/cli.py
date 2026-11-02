@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import cast
 
 from tscribe.audio import load_audio, record_audio
-from tscribe.model_files import EMBEDDING_FILE, EMBEDDING_MODEL
 from tscribe.models import (
     DEFAULT_ASR_MODEL,
     DIARIZATION_MODEL,
@@ -88,9 +87,9 @@ def run(options: Options) -> Path:
     data = {
         "audio_file": str(audio_path.resolve()),
         "diarization_model": DIARIZATION_MODEL,
-        "embedding_model": EMBEDDING_MODEL,
-        "embedding_file": EMBEDDING_FILE,
-        "backend": "sherpa-onnx",
+        "backend": "onnxruntime",
+        "asr_backend": "sherpa-onnx",
+        "diarization_file": "onnx/model.onnx",
         "device": device,
         "asr_model": options.asr_model,
         "speaker_turns": [asdict(turn) for turn in turns],

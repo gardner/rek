@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from tscribe.models import diarize, resolve_device, transcribe
-from tscribe.transcript import SpeakerTurn, Word
+from tscribe.models import resolve_device, transcribe
+from tscribe.transcript import Word
 
 
 @pytest.mark.parametrize(
@@ -33,29 +33,6 @@ def test_unavailable_acceleration_explains_cpu_option(requested: str) -> None:
     with patch("tscribe.models.sys.platform", "linux"):
         with pytest.raises(ValueError, match="--device cpu"):
             resolve_device(requested)
-
-
-@pytest.mark.parametrize("device", ["cpu", "coreml"])
-def test_diarization_preserves_speakers_and_times(device: str) -> None:
-    backend = MagicMock()
-    model = backend.OfflineSpeakerDiarization.return_value
-    model.sample_rate = 16_000
-    model.process.return_value.sort_by_start_time.return_value = [
-        SimpleNamespace(start=0.0, end=1.5, speaker=0),
-        SimpleNamespace(start=1.0, end=2.0, speaker=2),
-    ]
-    audio = np.zeros(32_000, dtype=np.float32)
-    with (
-        patch.dict("sys.modules", {"sherpa_onnx": backend}),
-        patch("tscribe.models.model_file", return_value="model.onnx"),
-    ):
-        assert diarize(audio, device) == [
-            SpeakerTurn(0.0, 1.5, "Speaker 1"),
-            SpeakerTurn(1.0, 2.0, "Speaker 3"),
-        ]
-    assert model.process.call_args.args[0] is audio
-    assert backend.OfflineSpeakerSegmentationModelConfig.call_args.kwargs["provider"] == device
-    assert backend.SpeakerEmbeddingExtractorConfig.call_args.kwargs["provider"] == device
 
 
 @pytest.mark.parametrize("device", ["cpu", "coreml"])
