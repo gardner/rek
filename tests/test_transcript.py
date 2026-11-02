@@ -1,6 +1,6 @@
 """Speaker assignment must preserve words without inventing speaker identities."""
 
-from gk.transcript import SpeakerTurn, Utterance, Word, align_words, render_transcript
+from rek.transcript import SpeakerTurn, Utterance, Word, align_words, render_transcript
 
 
 def test_groups_words_and_splits_at_speaker_changes() -> None:

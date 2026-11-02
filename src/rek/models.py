@@ -3,18 +3,18 @@
 import sys
 from typing import Literal, Protocol
 
-from gk.audio import SAMPLE_RATE, Audio
-from gk.diarization import diarize as diarize
-from gk.model_files import (
+from rek.audio import SAMPLE_RATE, Audio
+from rek.diarization import diarize as diarize
+from rek.model_files import (
     DEFAULT_ASR_MODEL as DEFAULT_ASR_MODEL,
 )
-from gk.model_files import (
+from rek.model_files import (
     DIARIZATION_MODEL as DIARIZATION_MODEL,
 )
-from gk.model_files import (
+from rek.model_files import (
     model_file,
 )
-from gk.transcript import Word, merge_word_tokens
+from rek.transcript import Word, merge_word_tokens
 
 type Device = Literal["auto", "cpu", "gpu", "cuda", "mps", "coreml"]
 type InferenceDevice = Literal["cpu", "coreml"]

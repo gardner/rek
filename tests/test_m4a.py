@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from gk.audio import SAMPLE_RATE, load_audio
+from rek.audio import SAMPLE_RATE, load_audio
 
 
 @pytest.mark.parametrize("codec", ["aac", "alac"])

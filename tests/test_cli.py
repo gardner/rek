@@ -7,8 +7,8 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from gk.cli import Options, main, parse_args, run
-from gk.transcript import SpeakerTurn, Word
+from rek.cli import Options, main, parse_args, run
+from rek.transcript import SpeakerTurn, Word
 
 
 def test_defaults_to_english_parakeet_v2() -> None:
@@ -42,10 +42,10 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     )
     samples = np.zeros(16_000, dtype=np.float32)
     with (
-        patch("gk.cli.resolve_device", return_value="cpu"),
-        patch("gk.cli.record_audio", return_value=samples) as record,
-        patch("gk.cli.diarize", return_value=[SpeakerTurn(0.0, 1.0, "Speaker 1")]),
-        patch("gk.cli.transcribe", return_value=[Word(0.1, 0.8, " Hello.")]),
+        patch("rek.cli.resolve_device", return_value="cpu"),
+        patch("rek.cli.record_audio", return_value=samples) as record,
+        patch("rek.cli.diarize", return_value=[SpeakerTurn(0.0, 1.0, "Speaker 1")]),
+        patch("rek.cli.transcribe", return_value=[Word(0.1, 0.8, " Hello.")]),
     ):
         assert run(options) == output
     record.assert_called_once_with(output / "recording.wav")
@@ -62,11 +62,11 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
 def test_file_input_skips_recording_and_silence_skips_asr(tmp_path: Path) -> None:
     options = Options(tmp_path / "input.wav", tmp_path / "out", "cpu", "unused", None)
     with (
-        patch("gk.cli.resolve_device", return_value="cpu"),
-        patch("gk.cli.load_audio", return_value=np.zeros(16_000, dtype=np.float32)),
-        patch("gk.cli.record_audio") as record,
-        patch("gk.cli.diarize", return_value=[]),
-        patch("gk.cli.transcribe") as asr,
+        patch("rek.cli.resolve_device", return_value="cpu"),
+        patch("rek.cli.load_audio", return_value=np.zeros(16_000, dtype=np.float32)),
+        patch("rek.cli.record_audio") as record,
+        patch("rek.cli.diarize", return_value=[]),
+        patch("rek.cli.transcribe") as asr,
     ):
         output = run(options)
     record.assert_not_called()
@@ -76,7 +76,7 @@ def test_file_input_skips_recording_and_silence_skips_asr(tmp_path: Path) -> Non
 
 def test_existing_output_is_not_overwritten(tmp_path: Path) -> None:
     options = Options(None, tmp_path, "cpu", "unused", None)
-    with patch("gk.cli.resolve_device", return_value="cpu"):
+    with patch("rek.cli.resolve_device", return_value="cpu"):
         with pytest.raises(FileExistsError):
             run(options)
 
@@ -86,10 +86,10 @@ def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
         None, tmp_path / "out", "cpu", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "en"
     )
     with (
-        patch("gk.cli.resolve_device", return_value="cpu"),
+        patch("rek.cli.resolve_device", return_value="cpu"),
         patch("sounddevice.InputStream") as input_stream,
-        patch("gk.cli.diarize", return_value=[SpeakerTurn(0.0, 0.1, "Speaker 1")]),
-        patch("gk.cli.transcribe", return_value=[Word(0.0, 0.1, " Hello.")]) as asr,
+        patch("rek.cli.diarize", return_value=[SpeakerTurn(0.0, 0.1, "Speaker 1")]),
+        patch("rek.cli.transcribe", return_value=[Word(0.0, 0.1, " Hello.")]) as asr,
     ):
         stream = input_stream.return_value.__enter__.return_value
         stream.read.side_effect = [
@@ -103,7 +103,7 @@ def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
 
 
 def test_ctrl_c_during_processing_still_cancels() -> None:
-    with patch("gk.cli.run", side_effect=KeyboardInterrupt):
+    with patch("rek.cli.run", side_effect=KeyboardInterrupt):
         with pytest.raises(SystemExit) as error:
             main([])
     assert error.value.code == 130
@@ -150,11 +150,11 @@ def test_positional_file_runs_complete_pipeline_with_defaults(tmp_path: Path) ->
     samples = np.zeros(16_000, dtype=np.float32)
     options = parse_args([str(audio), "--output-dir", str(tmp_path / "transcript")])
     with (
-        patch("gk.cli.resolve_device", return_value="coreml") as resolve,
-        patch("gk.cli.load_audio", return_value=samples) as load,
-        patch("gk.cli.record_audio") as record,
-        patch("gk.cli.diarize", return_value=[SpeakerTurn(0, 1, "Speaker 1")]) as diarize,
-        patch("gk.cli.transcribe", return_value=[Word(0, 1, " Hello.")]) as transcribe,
+        patch("rek.cli.resolve_device", return_value="coreml") as resolve,
+        patch("rek.cli.load_audio", return_value=samples) as load,
+        patch("rek.cli.record_audio") as record,
+        patch("rek.cli.diarize", return_value=[SpeakerTurn(0, 1, "Speaker 1")]) as diarize,
+        patch("rek.cli.transcribe", return_value=[Word(0, 1, " Hello.")]) as transcribe,
     ):
         output = run(options)
     resolve.assert_called_once_with("auto")

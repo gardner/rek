@@ -6,8 +6,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from gk.models import resolve_device, transcribe
-from gk.transcript import Word
+from rek.models import resolve_device, transcribe
+from rek.transcript import Word
 
 
 @pytest.mark.parametrize(
@@ -24,13 +24,13 @@ from gk.transcript import Word
     ],
 )
 def test_selects_platform_provider(platform: str, requested: str, expected: str) -> None:
-    with patch("gk.models.sys.platform", platform):
+    with patch("rek.models.sys.platform", platform):
         assert resolve_device(requested) == expected
 
 
 @pytest.mark.parametrize("requested", ["gpu", "cuda", "mps", "coreml"])
 def test_unavailable_acceleration_explains_cpu_option(requested: str) -> None:
-    with patch("gk.models.sys.platform", "linux"):
+    with patch("rek.models.sys.platform", "linux"):
         with pytest.raises(ValueError, match="--device cpu"):
             resolve_device(requested)
 
@@ -47,7 +47,7 @@ def test_parakeet_merges_sentencepiece_tokens_with_durations(device: str) -> Non
     )
     with (
         patch.dict("sys.modules", {"sherpa_onnx": backend}),
-        patch("gk.models.model_file", side_effect=lambda _, name: name),
+        patch("rek.models.model_file", side_effect=lambda _, name: name),
     ):
         words = transcribe(np.zeros(16_000, dtype=np.float32), device)
     assert backend.OfflineRecognizer.from_transducer.call_args.kwargs["provider"] == device
@@ -70,7 +70,7 @@ def test_preserves_text_without_timestamps(text: str, expected: list[Word]) -> N
     )
     with (
         patch.dict("sys.modules", {"sherpa_onnx": backend}),
-        patch("gk.models.model_file", return_value="model.onnx"),
+        patch("rek.models.model_file", return_value="model.onnx"),
     ):
         assert transcribe(np.zeros(16_000, dtype=np.float32), "cpu") == expected
 
@@ -97,7 +97,7 @@ def test_chunks_offset_times_and_discard_context_words() -> None:
     ]
     with (
         patch.dict("sys.modules", {"sherpa_onnx": backend}),
-        patch("gk.models.model_file", return_value="model.onnx"),
+        patch("rek.models.model_file", return_value="model.onnx"),
     ):
         words = transcribe(np.zeros(32 * 16_000, dtype=np.float32), "cpu")
     assert words == [Word(1.0, 1.5, " First"), Word(31.0, 31.5, " Second")]

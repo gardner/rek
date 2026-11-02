@@ -1,6 +1,6 @@
-# gk
+# rek
 
-[GitHub repository](https://github.com/gardner/gk) · [Issues](https://github.com/gardner/gk/issues)
+[GitHub repository](https://github.com/gardner/rek) · [Issues](https://github.com/gardner/rek/issues)
 
 Record your microphone, then transcribe locally with timestamps and speaker labels.
 Inference uses ONNX Runtime (with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) for ASR),
@@ -38,7 +38,7 @@ uv tool install .
 Then just give it a filename:
 
 ```sh
-gk "Voice Memo.m4a"
+rek "Voice Memo.m4a"
 ```
 
 No model, language, device, speaker-count, or tuning flags are required. The command
@@ -46,7 +46,7 @@ downloads the models if needed, decodes and normalizes the audio, detects speake
 transcribes speech, and saves both text and JSON in a new `recordings/<timestamp>/`
 directory under your current working directory. It prints the transcript and output
 location when finished. First use needs internet access for the model downloads.
-If your shell cannot find `gk` after installation, run `uv tool update-shell`
+If your shell cannot find `rek` after installation, run `uv tool update-shell`
 and reopen your terminal.
 
 You can also run directly from the checkout without installing the command:
@@ -71,7 +71,7 @@ The defaults are:
 These use the model's published settings and bounded inference windows; they are
 starting defaults, not benchmark-tuned settings for a particular machine.
 
-Run `gk` without a filename to record your default microphone until **Ctrl+C**.
+Run `rek` without a filename to record your default microphone until **Ctrl+C**.
 Start speaking when you see **“Recording”**. Ctrl+C finishes saving the WAV and starts
 transcription. There is no duration limit or `--seconds` option.
 
@@ -83,9 +83,9 @@ then set `HF_HUB_OFFLINE=1`.
 Overrides are optional, mainly for troubleshooting or changing the destination:
 
 ```sh
-gk meeting.wav --output-dir recordings/meeting
-gk meeting.wav --device cpu
-gk --help
+rek meeting.wav --output-dir recordings/meeting
+rek meeting.wav --device cpu
+rek --help
 ```
 
 The older `--input filename` syntax remains supported.
@@ -183,3 +183,34 @@ microphone or download model weights. M4A integration tests generate real AAC an
 ALAC files and are skipped when FFmpeg is unavailable. Tests were updated for ONNX
 but deliberately not run during the migration. Ruff enforces annotations and a
 complexity limit of 10, Pyright checks types, and source files are limited to 500 lines.
+
+## Publishing
+
+Releases publish the `rek` distribution through GitHub Actions OIDC. No PyPI API
+token or password is stored in GitHub. Configure a PyPI Trusted Publisher with:
+
+| Field | Value |
+| --- | --- |
+| PyPI project | `rek` |
+| GitHub owner | `gardner` |
+| GitHub repository | `rek` |
+| Workflow filename | `publish.yml` |
+| GitHub environment | `pypi` |
+
+Create the `pypi` environment in the repository settings. For the first upload,
+register a pending publisher in your PyPI account's Publishing settings. See the
+[PyPI Trusted Publishing guide](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
+
+To release, update `version` in `pyproject.toml`, run `uv lock`, and commit and push
+the changes. Then publish a GitHub release with the matching tag, such as `v0.1.0`.
+The workflow checks that the tag matches the package version, builds a wheel and
+source distribution, and publishes them from a separate job with `id-token: write`.
+Pushing commits or tags alone does not publish; a GitHub release must be published.
+Each new PyPI release needs a new version. The workflow does not run tests.
+
+Once published, users can install and run the command with:
+
+```sh
+uv tool install rek
+rek "Voice Memo.m4a"
+```

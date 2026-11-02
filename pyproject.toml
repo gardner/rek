@@ -1,5 +1,5 @@
 [project]
-name = "gk"
+name = "rek"
 version = "0.1.0"
 description = "Local English transcription and speaker diarization with ONNX Runtime"
 readme = "README.md"
@@ -15,11 +15,11 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/gardner/gk"
-Issues = "https://github.com/gardner/gk/issues"
+Repository = "https://github.com/gardner/rek"
+Issues = "https://github.com/gardner/rek/issues"
 
 [project.scripts]
-gk = "gk:main"
+rek = "rek:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
@@ -45,7 +45,7 @@ max-complexity = 10
 [tool.pyright]
 include = ["main.py", "src", "scripts"]
 typeCheckingMode = "basic"
-strict = ["src/gk/transcript.py"]
+strict = ["src/rek/transcript.py"]
 pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"

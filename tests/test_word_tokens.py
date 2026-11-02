@@ -1,6 +1,6 @@
 """Reconstruct Parakeet words before assigning each complete word to a speaker."""
 
-from gk.transcript import SpeakerTurn, Word, align_words, merge_word_tokens
+from rek.transcript import SpeakerTurn, Word, align_words, merge_word_tokens
 
 
 def test_subwords_and_punctuation_share_one_word_timestamp() -> None:
