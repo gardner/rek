@@ -18,8 +18,9 @@ There is no MLX, PyTorch, or CUDA dependency.
   including overlapping speakers.
 
 Nemotron uses the FP32 graph and its external weights (about 398 MB), pinned to
-revision `353b6f8ad2cac3580e982d7fbdf0a010786b0406`. Both files are downloaded into
-the same cache directory so ONNX Runtime can resolve the external weights.
+revision `353b6f8ad2cac3580e982d7fbdf0a010786b0406`. Both files are downloaded as regular files into a revision-specific directory under
+the Hugging Face cache. This keeps external weights beside the graph and avoids
+ONNX Runtime rejecting the shared cache's symlinks.
 The model is distributed under the [OpenMDW 1.1 license](https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX/blob/main/README.md).
 
 
