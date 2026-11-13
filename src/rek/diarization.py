@@ -1,7 +1,11 @@
 """Nemotron 3 ONNX diarization with cached speaker identity across chunks."""
 
 import sys
-from typing import Literal, cast
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Literal, cast
+
+if TYPE_CHECKING:
+    from onnxruntime import InferenceSession
 
 import numpy as np
 
@@ -57,11 +61,9 @@ def speaker_turns(logits: FloatArray, duration: float) -> list[SpeakerTurn]:
     return sorted(turns, key=lambda turn: (turn.start, turn.speaker))
 
 
-def diarize(audio: Audio, device: Literal["cpu", "coreml"]) -> list[SpeakerTurn]:
+def load_diarizer(device: Literal["cpu", "coreml"]) -> Callable[[Audio], list[SpeakerTurn]]:
     import onnxruntime as ort
 
-    if len(audio) < _HOP:
-        return []
     print(f"Identifying speakers with {DIARIZATION_MODEL} using {device}...", flush=True)
     # The graph references this sibling external-data file by its exact basename.
     graph = model_file(DIARIZATION_MODEL, "onnx/model.onnx")
@@ -75,6 +77,12 @@ def diarize(audio: Audio, device: Literal["cpu", "coreml"]) -> list[SpeakerTurn]
     options = ort.SessionOptions()
     options.intra_op_num_threads = 4
     session = ort.InferenceSession(graph, sess_options=options, providers=providers)
+    return lambda audio: _infer(audio, session)
+
+
+def _infer(audio: Audio, session: InferenceSession) -> list[SpeakerTurn]:
+    if len(audio) < _HOP:
+        return []
     features = mel_features(audio)
     cache = SpeakerCache()
     outputs: list[FloatArray] = []
@@ -99,3 +107,9 @@ def diarize(audio: Audio, device: Literal["cpu", "coreml"]) -> list[SpeakerTurn]
         outputs.append(logits[0, offset : offset + end - start])
         cache.update(embeds[0, :core_frames], logits[0], silence)
     return speaker_turns(np.concatenate(outputs), len(audio) / SAMPLE_RATE)
+
+
+def diarize(audio: Audio, device: Literal["cpu", "coreml"]) -> list[SpeakerTurn]:
+    if len(audio) < _HOP:
+        return []
+    return load_diarizer(device)(audio)

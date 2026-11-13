@@ -21,6 +21,11 @@ Issues = "https://github.com/gardner/rek/issues"
 [project.scripts]
 rek = "rek:main"
 
+[project.optional-dependencies]
+mlx = [
+    "mlx-audio>=0.6.5 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
+]
+
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
 build-backend = "uv_build"

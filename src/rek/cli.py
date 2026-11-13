@@ -6,9 +6,10 @@ import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
 from rek.audio import load_audio, record_audio
+from rek.mlx_diarization import MODEL_ID as MLX_DIARIZATION_MODEL
 from rek.models import (
     DEFAULT_ASR_MODEL,
     DIARIZATION_MODEL,
@@ -27,6 +28,7 @@ class Options:
     device: Device
     asr_model: str
     language: str | None
+    diarization_backend: Literal["onnx", "mlx"] = "onnx"
 
 
 def parse_args(argv: list[str] | None = None) -> Options:
@@ -48,7 +50,13 @@ def parse_args(argv: list[str] | None = None) -> Options:
         "--device",
         choices=["auto", "gpu", "cpu", "cuda", "mps", "coreml"],
         default="auto",
-        help="ONNX provider (auto: Core ML on macOS, CPU elsewhere; mps/gpu alias Core ML).",
+        help="Device (auto: Core ML for ONNX on macOS, GPU for MLX; cpu forces CPU).",
+    )
+    advanced.add_argument(
+        "--diarization-backend",
+        choices=["onnx", "mlx"],
+        default="onnx",
+        help="Speaker detection backend (MLX requires Apple Silicon and the mlx extra).",
     )
     advanced.add_argument(
         "--asr-model",
@@ -71,6 +79,7 @@ def parse_args(argv: list[str] | None = None) -> Options:
         cast(Device, args.device),
         args.asr_model,
         args.language,
+        args.diarization_backend,
     )
     if options.input is not None and not options.input.is_file():
         parser.error(f"Audio file does not exist: {options.input}")
@@ -79,13 +88,22 @@ def parse_args(argv: list[str] | None = None) -> Options:
 
 def run(options: Options) -> Path:
     device = resolve_device(options.device)
+    if options.diarization_backend == "mlx":
+        from rek.mlx_diarization import validate_platform
+
+        validate_platform()
     output_dir = options.output_dir or Path("recordings") / datetime.now().strftime(
         "%Y%m%d-%H%M%S-%f"
     )
     output_dir.mkdir(parents=True, exist_ok=False)
     audio_path = options.input or output_dir / "recording.wav"
     audio = load_audio(audio_path) if options.input else record_audio(audio_path)
-    turns = diarize(audio, device)
+    if options.diarization_backend == "mlx":
+        from rek.mlx_diarization import diarize as diarize_mlx
+
+        turns = diarize_mlx(audio, device)
+    else:
+        turns = diarize(audio, device)
     # Skip ASR when diarization detects no speech.
     words = transcribe(audio, device, options.asr_model, options.language) if turns else []
     utterances = align_words(words, turns)
@@ -93,10 +111,17 @@ def run(options: Options) -> Path:
     (output_dir / "transcript.txt").write_text(text, encoding="utf-8")
     data = {
         "audio_file": str(audio_path.resolve()),
-        "diarization_model": DIARIZATION_MODEL,
-        "backend": "onnxruntime",
+        "diarization_model": (
+            MLX_DIARIZATION_MODEL if options.diarization_backend == "mlx" else DIARIZATION_MODEL
+        ),
+        "backend": "mlx" if options.diarization_backend == "mlx" else "onnxruntime",
+        "diarization_device": ("gpu" if device == "coreml" else "cpu")
+        if options.diarization_backend == "mlx"
+        else device,
         "asr_backend": "sherpa-onnx",
-        "diarization_file": "onnx/model.onnx",
+        "diarization_file": (
+            "model.safetensors" if options.diarization_backend == "mlx" else "onnx/model.onnx"
+        ),
         "device": device,
         "asr_model": options.asr_model,
         "speaker_turns": [asdict(turn) for turn in turns],

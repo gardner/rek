@@ -5,7 +5,8 @@
 Record your microphone, then transcribe locally with timestamps and speaker labels.
 Inference uses ONNX Runtime (with [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) for ASR),
 with Core ML acceleration by default on macOS and CPU inference on Linux/Windows.
-There is no MLX, PyTorch, or CUDA dependency.
+MLX diarization is available as an optional extra on Apple Silicon; the default
+installation does not require MLX, PyTorch, or CUDA.
 
 - [Parakeet TDT 0.6B v2 INT8](https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8)
   transcribes **English only**.
@@ -24,8 +25,8 @@ ONNX Runtime rejecting the shared cache's symlinks.
 The model is distributed under the [OpenMDW 1.1 license](https://huggingface.co/onnx-community/Nemotron-3-Diarization-ONNX/blob/main/README.md).
 
 
-The dependencies are intended for macOS, Linux, and Windows. This ONNX migration
-has **not been runtime-tested**, including on Linux or Windows.
+The default dependencies are intended for macOS, Linux, and Windows.
+Linux and Windows inference have not been runtime-tested.
 
 ## Run
 
@@ -110,6 +111,65 @@ of context on either side. Words are retained by their timestamp midpoint within
 each window, with timestamps relative to the full recording. Chunk boundaries
 can still affect recognition.
 
+## Optional MLX diarization
+
+On an Apple Silicon Mac, install the extra and select MLX explicitly:
+
+```sh
+uv run --extra mlx main.py "Voice Memo.m4a" --diarization-backend mlx
+```
+
+For an installed command, use `uv tool install '.[mlx]'` from this checkout,
+then `rek meeting.wav --diarization-backend mlx`.
+ONNX remains the default and Parakeet transcription still uses sherpa-onnx.
+With MLX selected, `--device auto` uses the Apple GPU for diarization and requests
+Core ML for ASR; `--device cpu` requests CPU for both.
+
+The optional `mlx-audio` backend loads
+[`mlx-community/Nemotron-3-Diarization`](https://huggingface.co/mlx-community/Nemotron-3-Diarization)
+at revision `59ed2dbfc1346dcea9d423c71306a3a2499c568f` with strict weight loading.
+It uses the offline preset (27.2 s chunks, 3.2 s look-ahead), fresh speaker state
+per recording, and the same 0.5 threshold and overlap-preserving segment conversion
+as ONNX. Feature extraction and cache implementations still differ; output parity
+is not guaranteed. The JSON records the selected model, weights file, backend,
+and requested diarization device separately from the ASR provider.
+
+Compare diarization on your own recording:
+
+```sh
+uv run --extra mlx python -m rek.benchmark meeting.wav --output benchmark.json
+```
+
+The benchmark runs ONNX CPU, ONNX Core ML (macOS), and MLX GPU (Apple Silicon)
+in separate processes. It measures model loading, first inference, median warm
+inference (three repetitions by default), real-time factor, and peak process RSS.
+A real-time factor of 0.1 means ten seconds of processing per hundred seconds of
+audio. Audio decoding is excluded. `--repeats` and `--timeout` (seconds per backend,
+default 600) are configurable. Existing report files are refused.
+
+Download time is included in loading when weights are uncached; run again after
+the first download for a useful startup comparison. RSS includes the whole process
+and is not a dedicated GPU-memory measurement. Core ML may execute some operations
+on CPU. Failures/timeouts are saved alongside successful results. Speaker turns
+are included for inspection, but accuracy cannot be measured without labelled
+reference segments. This benchmark does not measure transcription speed.
+
+A local run on Apple M4 (2026-11-13), using one 22m56s recording and two warm
+repetitions, measured:
+
+| Diarization backend | Warm median | Peak process RSS |
+| --- | ---: | ---: |
+| ONNX CPU | 11.27 s | 1,675 MiB |
+| ONNX Core ML | 26.31 s | 4,554 MiB |
+| MLX GPU | 3.55 s | 687 MiB |
+
+MLX was approximately 3.2× faster than ONNX CPU and 7.4× faster than ONNX Core ML
+on this recording. ONNX reported Core ML support for only 138 of 749 graph nodes
+across 100 partitions. All runs detected two speakers, with different segment
+boundaries; no labelled accuracy evaluation was performed. These are single-machine,
+single-recording results, not general speed guarantees. The run used ONNX Runtime
+1.31.1, MLX 0.32.4 and mlx-audio 0.6.5. ONNX remains the default.
+
 ## Output
 
 Each run creates a new `recordings/<timestamp>/` directory containing:
@@ -146,7 +206,7 @@ an empty recording instead of starting inference.
 
 ## Devices and troubleshooting
 
-`--device auto` requests the ONNX Runtime Core ML provider on macOS for both
+With the default ONNX backend, `--device auto` requests Core ML on macOS for both
 transcription and diarization, and CPU elsewhere. `--device coreml`, `--device mps`,
 and `--device gpu` explicitly request Core ML on macOS. `--device cpu` forces CPU
 on every platform. CUDA is not configured in this project.
@@ -161,7 +221,8 @@ and falls back to CPU with a warning if Core ML is unavailable in that runtime.
 Custom sherpa-onnx runtimes without Core ML may also fall back to CPU.
 The JSON `device` field records the requested provider, not measured hardware usage.
 Core ML model compilation can add startup time. Use `--device cpu` if initialization
-fails or acceleration performs poorly. No acceleration benchmarks were run.
+fails or acceleration performs poorly. Use the benchmark command above to compare
+the backends on your hardware.
 
 If microphone capture fails, check the system's default input device and grant
 microphone access to your terminal/app. macOS and Windows sounddevice wheels include
@@ -181,8 +242,8 @@ uv run python scripts/check_file_length.py
 
 Tests use synthetic audio and mocked recording/inference; they do not access a
 microphone or download model weights. M4A integration tests generate real AAC and
-ALAC files and are skipped when FFmpeg is unavailable. Tests were updated for ONNX
-but deliberately not run during the migration. Ruff enforces annotations and a
+ALAC files and are skipped when FFmpeg is unavailable. Tests cover both ONNX and
+the optional MLX adapter. Ruff enforces annotations and a
 complexity limit of 10, Pyright checks types, and source files are limited to 500 lines.
 
 ## Publishing

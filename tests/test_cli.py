@@ -164,3 +164,23 @@ def test_positional_file_runs_complete_pipeline_with_defaults(tmp_path: Path) ->
     transcribe.assert_called_once_with(samples, "coreml", options.asr_model, "en")
     assert (output / "transcript.txt").is_file()
     assert (output / "transcript.json").is_file()
+
+
+def test_mlx_metadata_and_asr_stays_onnx(tmp_path: Path) -> None:
+    options = Options(tmp_path / "audio.wav", tmp_path / "out", "auto", "asr", "en", "mlx")
+    with (
+        patch("rek.cli.resolve_device", return_value="coreml"),
+        patch("rek.cli.load_audio", return_value=np.zeros(16000, dtype=np.float32)),
+        patch("rek.mlx_diarization.validate_platform"),
+        patch("rek.mlx_diarization.diarize", return_value=[SpeakerTurn(0, 1, "Speaker 1")]),
+        patch("rek.cli.diarize") as onnx,
+        patch("rek.cli.transcribe", return_value=[]) as asr,
+    ):
+        output = run(options)
+    onnx.assert_not_called()
+    assert asr.call_args.args[1] == "coreml"
+    data = json.loads((output / "transcript.json").read_text())
+    assert data["backend"] == "mlx"
+    assert data["asr_backend"] == "sherpa-onnx"
+    assert data["diarization_device"] == "gpu"
+    assert data["diarization_file"] == "model.safetensors"
