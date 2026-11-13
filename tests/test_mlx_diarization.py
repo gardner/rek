@@ -9,8 +9,8 @@ from rek.cli import parse_args
 from rek.transcript import SpeakerTurn
 
 
-def test_backend_is_opt_in() -> None:
-    assert parse_args([]).diarization_backend == "onnx"
+def test_mlx_is_default() -> None:
+    assert parse_args([]).diarization_backend == "mlx"
     assert parse_args(["--diarization-backend", "mlx"]).diarization_backend == "mlx"
 
 
@@ -52,6 +52,6 @@ def test_missing_extra_has_install_instructions() -> None:
     with (
         patch("rek.mlx_diarization.validate_platform"),
         patch.dict("sys.modules", {"mlx_audio.vad": None}),
-        pytest.raises(RuntimeError, match="uv sync --extra mlx"),
+        pytest.raises(RuntimeError, match="uv sync"),
     ):
         load_diarizer("coreml")

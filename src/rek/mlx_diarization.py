@@ -1,4 +1,4 @@
-"""Optional Apple Silicon Nemotron backend with the same output policy as ONNX."""
+"""Apple Silicon Nemotron backend with the same output policy as ONNX."""
 
 import platform
 import sys
@@ -28,7 +28,7 @@ class MLXModel(Protocol):
 def validate_platform() -> None:
     if sys.platform != "darwin" or platform.machine() != "arm64":
         raise ValueError(
-            "MLX diarization requires an Apple Silicon Mac; use --diarization-backend onnx."
+            "MLX requires an Apple Silicon Mac; install rek[onnx] and use --backend onnx."
         )
 
 
@@ -36,11 +36,11 @@ def load_diarizer(device: Literal["cpu", "coreml"]) -> Callable[[Audio], list[Sp
     """Load once; each inference starts with fresh speaker state for its recording."""
     validate_platform()
     try:
-        # These dependencies are deliberately absent from the default installation.
+        # MLX is platform-specific; ONNX-only installations may omit it.
         import mlx.core as mx  # pyright: ignore[reportMissingImports]
         from mlx_audio.vad import load  # pyright: ignore[reportMissingImports]
     except ImportError as error:
-        raise RuntimeError("MLX dependencies are missing. Run: uv sync --extra mlx") from error
+        raise RuntimeError("MLX dependencies are missing. Run: uv sync") from error
     target = mx.cpu if device == "cpu" else mx.gpu
     with mx.stream(target):
         model = cast(MLXModel, load(MODEL_ID, strict=True, revision=MODEL_REVISION))

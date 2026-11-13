@@ -67,7 +67,10 @@ def transcribe(
 ) -> list[Word]:
     if language is not None and language.lower() not in {"en", "english"}:
         raise ValueError("Parakeet v2 supports English only.")
-    import sherpa_onnx
+    try:
+        import sherpa_onnx  # pyright: ignore[reportMissingImports]
+    except ImportError as error:
+        raise RuntimeError("ONNX is optional. Install it with: uv sync --extra onnx") from error
 
     print(f"Transcribing English with {model_id} using ONNX provider {device}...", flush=True)
     recognizer = sherpa_onnx.OfflineRecognizer.from_transducer(

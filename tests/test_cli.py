@@ -13,7 +13,7 @@ from rek.transcript import SpeakerTurn, Word
 
 def test_defaults_to_english_parakeet_v2() -> None:
     options = parse_args([])
-    assert options.asr_model == "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+    assert options.asr_model == "mlx-community/parakeet-tdt-0.6b-v2"
     assert options.language == "en"
 
 
@@ -38,7 +38,13 @@ def test_missing_input_is_a_usage_error(tmp_path: Path) -> None:
 def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
     output = tmp_path / "result"
     options = Options(
-        None, output, "cpu", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "en"
+        None,
+        output,
+        "cpu",
+        "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8",
+        "en",
+        "onnx",
+        "onnx",
     )
     samples = np.zeros(16_000, dtype=np.float32)
     with (
@@ -60,7 +66,9 @@ def test_writes_transcript_and_diarization_metadata(tmp_path: Path) -> None:
 
 
 def test_file_input_skips_recording_and_silence_skips_asr(tmp_path: Path) -> None:
-    options = Options(tmp_path / "input.wav", tmp_path / "out", "cpu", "unused", None)
+    options = Options(
+        tmp_path / "input.wav", tmp_path / "out", "cpu", "unused", None, "onnx", "onnx"
+    )
     with (
         patch("rek.cli.resolve_device", return_value="cpu"),
         patch("rek.cli.load_audio", return_value=np.zeros(16_000, dtype=np.float32)),
@@ -75,7 +83,7 @@ def test_file_input_skips_recording_and_silence_skips_asr(tmp_path: Path) -> Non
 
 
 def test_existing_output_is_not_overwritten(tmp_path: Path) -> None:
-    options = Options(None, tmp_path, "cpu", "unused", None)
+    options = Options(None, tmp_path, "cpu", "unused", None, "onnx", "onnx")
     with patch("rek.cli.resolve_device", return_value="cpu"):
         with pytest.raises(FileExistsError):
             run(options)
@@ -83,7 +91,13 @@ def test_existing_output_is_not_overwritten(tmp_path: Path) -> None:
 
 def test_recording_stop_continues_through_transcription(tmp_path: Path) -> None:
     options = Options(
-        None, tmp_path / "out", "cpu", "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8", "en"
+        None,
+        tmp_path / "out",
+        "cpu",
+        "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8",
+        "en",
+        "onnx",
+        "onnx",
     )
     with (
         patch("rek.cli.resolve_device", return_value="cpu"),
@@ -117,7 +131,7 @@ def test_positional_m4a_uses_automatic_defaults(tmp_path: Path) -> None:
     assert options.output_dir is None
     assert options.device == "auto"
     assert options.language == "en"
-    assert options.asr_model == "csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+    assert options.asr_model == "mlx-community/parakeet-tdt-0.6b-v2"
 
 
 def test_no_filename_keeps_microphone_mode() -> None:
@@ -144,11 +158,13 @@ def test_missing_positional_file_is_a_usage_error(tmp_path: Path) -> None:
     assert error.value.code == 2
 
 
-def test_positional_file_runs_complete_pipeline_with_defaults(tmp_path: Path) -> None:
+def test_positional_file_runs_complete_onnx_pipeline(tmp_path: Path) -> None:
     audio = tmp_path / "meeting.m4a"
     audio.touch()
     samples = np.zeros(16_000, dtype=np.float32)
-    options = parse_args([str(audio), "--output-dir", str(tmp_path / "transcript")])
+    options = parse_args(
+        [str(audio), "--backend", "onnx", "--output-dir", str(tmp_path / "transcript")]
+    )
     with (
         patch("rek.cli.resolve_device", return_value="coreml") as resolve,
         patch("rek.cli.load_audio", return_value=samples) as load,
@@ -167,7 +183,7 @@ def test_positional_file_runs_complete_pipeline_with_defaults(tmp_path: Path) ->
 
 
 def test_mlx_metadata_and_asr_stays_onnx(tmp_path: Path) -> None:
-    options = Options(tmp_path / "audio.wav", tmp_path / "out", "auto", "asr", "en", "mlx")
+    options = Options(tmp_path / "audio.wav", tmp_path / "out", "auto", "asr", "en", "mlx", "onnx")
     with (
         patch("rek.cli.resolve_device", return_value="coreml"),
         patch("rek.cli.load_audio", return_value=np.zeros(16000, dtype=np.float32)),

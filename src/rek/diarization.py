@@ -5,7 +5,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Literal, cast
 
 if TYPE_CHECKING:
-    from onnxruntime import InferenceSession
+    from onnxruntime import InferenceSession  # pyright: ignore[reportMissingImports]
 
 import numpy as np
 
@@ -62,7 +62,10 @@ def speaker_turns(logits: FloatArray, duration: float) -> list[SpeakerTurn]:
 
 
 def load_diarizer(device: Literal["cpu", "coreml"]) -> Callable[[Audio], list[SpeakerTurn]]:
-    import onnxruntime as ort
+    try:
+        import onnxruntime as ort  # pyright: ignore[reportMissingImports]
+    except ImportError as error:
+        raise RuntimeError("ONNX is optional. Install it with: uv sync --extra onnx") from error
 
     print(f"Identifying speakers with {DIARIZATION_MODEL} using {device}...", flush=True)
     # The graph references this sibling external-data file by its exact basename.

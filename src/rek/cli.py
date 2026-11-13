@@ -9,11 +9,13 @@ from pathlib import Path
 from typing import Literal, cast
 
 from rek.audio import load_audio, record_audio
+from rek.mlx_asr import DEFAULT_ASR_MODEL as MLX_ASR_MODEL
 from rek.mlx_diarization import MODEL_ID as MLX_DIARIZATION_MODEL
 from rek.models import (
     DEFAULT_ASR_MODEL,
     DIARIZATION_MODEL,
     Device,
+    InferenceDevice,
     diarize,
     resolve_device,
     transcribe,
@@ -28,7 +30,8 @@ class Options:
     device: Device
     asr_model: str
     language: str | None
-    diarization_backend: Literal["onnx", "mlx"] = "onnx"
+    diarization_backend: Literal["onnx", "mlx"] = "mlx"
+    asr_backend: Literal["onnx", "mlx"] = "mlx"
 
 
 def parse_args(argv: list[str] | None = None) -> Options:
@@ -38,7 +41,7 @@ def parse_args(argv: list[str] | None = None) -> Options:
         "Without a file, record your microphone until Ctrl+C.",
         epilog="Example: rek 'Voice Memo.m4a'. Models download automatically on first use. "
         "Defaults: English, Nemotron speaker detection, Parakeet transcription, "
-        "Core ML on macOS and CPU elsewhere.",
+        "MLX on Apple Silicon. Install rek[onnx] for optional ONNX support.",
     )
     parser.add_argument("file", nargs="?", type=Path, help="Audio file, including M4A.")
     parser.add_argument("--input", type=Path, help=argparse.SUPPRESS)
@@ -53,15 +56,24 @@ def parse_args(argv: list[str] | None = None) -> Options:
         help="Device (auto: Core ML for ONNX on macOS, GPU for MLX; cpu forces CPU).",
     )
     advanced.add_argument(
+        "--backend",
+        choices=["mlx", "onnx"],
+        default="mlx",
+        help="Backend for transcription and speaker detection (default: mlx).",
+    )
+    advanced.add_argument(
+        "--asr-backend",
+        choices=["mlx", "onnx"],
+        help="Override the transcription backend only.",
+    )
+    advanced.add_argument(
         "--diarization-backend",
         choices=["onnx", "mlx"],
-        default="onnx",
-        help="Speaker detection backend (MLX requires Apple Silicon and the mlx extra).",
+        help="Override the speaker detection backend only.",
     )
     advanced.add_argument(
         "--asr-model",
-        default=DEFAULT_ASR_MODEL,
-        help="Sherpa ONNX Parakeet v2 INT8 repository ID or local model directory.",
+        help="Compatible Parakeet model repository or directory (default matches backend).",
     )
     advanced.add_argument(
         "--language",
@@ -77,18 +89,25 @@ def parse_args(argv: list[str] | None = None) -> Options:
         args.file if args.file is not None else args.input,
         args.output_dir,
         cast(Device, args.device),
-        args.asr_model,
+        args.asr_model
+        or (MLX_ASR_MODEL if (args.asr_backend or args.backend) == "mlx" else DEFAULT_ASR_MODEL),
         args.language,
-        args.diarization_backend,
+        args.diarization_backend or args.backend,
+        args.asr_backend or args.backend,
     )
     if options.input is not None and not options.input.is_file():
         parser.error(f"Audio file does not exist: {options.input}")
     return options
 
 
+def backend_device(device: InferenceDevice, backend: str) -> str:
+    """Report MLX GPU selection without labelling it as the ONNX Core ML provider."""
+    return "gpu" if device == "coreml" and backend == "mlx" else device
+
+
 def run(options: Options) -> Path:
     device = resolve_device(options.device)
-    if options.diarization_backend == "mlx":
+    if "mlx" in (options.diarization_backend, options.asr_backend):
         from rek.mlx_diarization import validate_platform
 
         validate_platform()
@@ -105,7 +124,10 @@ def run(options: Options) -> Path:
     else:
         turns = diarize(audio, device)
     # Skip ASR when diarization detects no speech.
-    words = transcribe(audio, device, options.asr_model, options.language) if turns else []
+    transcribe_audio = transcribe
+    if options.asr_backend == "mlx":
+        from rek.mlx_asr import transcribe as transcribe_audio
+    words = transcribe_audio(audio, device, options.asr_model, options.language) if turns else []
     utterances = align_words(words, turns)
     text = render_transcript(utterances)
     (output_dir / "transcript.txt").write_text(text, encoding="utf-8")
@@ -115,14 +137,13 @@ def run(options: Options) -> Path:
             MLX_DIARIZATION_MODEL if options.diarization_backend == "mlx" else DIARIZATION_MODEL
         ),
         "backend": "mlx" if options.diarization_backend == "mlx" else "onnxruntime",
-        "diarization_device": ("gpu" if device == "coreml" else "cpu")
-        if options.diarization_backend == "mlx"
-        else device,
-        "asr_backend": "sherpa-onnx",
+        "diarization_device": backend_device(device, options.diarization_backend),
+        "asr_backend": "mlx" if options.asr_backend == "mlx" else "sherpa-onnx",
+        "asr_device": backend_device(device, options.asr_backend),
         "diarization_file": (
             "model.safetensors" if options.diarization_backend == "mlx" else "onnx/model.onnx"
         ),
-        "device": device,
+        "device": backend_device(device, options.asr_backend),
         "asr_model": options.asr_model,
         "speaker_turns": [asdict(turn) for turn in turns],
         "words": [asdict(word) for word in words],
