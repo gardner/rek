@@ -12,7 +12,8 @@ from rek.transcript import SpeakerTurn, Word
 
 
 def test_defaults_to_english_parakeet_v2() -> None:
-    options = parse_args([])
+    with patch("sys.platform", "darwin"), patch("platform.machine", return_value="arm64"):
+        options = parse_args([])
     assert options.asr_model == "mlx-community/parakeet-tdt-0.6b-v2"
     assert options.language == "en"
 
@@ -126,7 +127,8 @@ def test_ctrl_c_during_processing_still_cancels() -> None:
 def test_positional_m4a_uses_automatic_defaults(tmp_path: Path) -> None:
     audio = tmp_path / "Voice Memo.m4a"
     audio.touch()
-    options = parse_args([str(audio)])
+    with patch("sys.platform", "darwin"), patch("platform.machine", return_value="arm64"):
+        options = parse_args([str(audio)])
     assert options.input == audio
     assert options.output_dir is None
     assert options.device == "auto"

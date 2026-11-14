@@ -1,13 +1,12 @@
 """Apple Silicon Nemotron backend with the same output policy as ONNX."""
 
-import platform
-import sys
 from collections.abc import Callable
 from typing import Literal, Protocol, cast
 
 import numpy as np
 
 from rek.audio import SAMPLE_RATE, Audio
+from rek.backends import default_backend
 from rek.diarization import speaker_turns
 from rek.transcript import SpeakerTurn
 
@@ -26,10 +25,8 @@ class MLXModel(Protocol):
 
 
 def validate_platform() -> None:
-    if sys.platform != "darwin" or platform.machine() != "arm64":
-        raise ValueError(
-            "MLX requires an Apple Silicon Mac; install rek[onnx] and use --backend onnx."
-        )
+    if default_backend() != "mlx":
+        raise ValueError("MLX requires an Apple Silicon Mac; use --backend auto or --backend onnx.")
 
 
 def load_diarizer(device: Literal["cpu", "coreml"]) -> Callable[[Audio], list[SpeakerTurn]]:

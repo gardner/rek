@@ -909,6 +909,7 @@ onnx = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "packaging" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "ruff" },
@@ -929,6 +930,7 @@ provides-extras = ["onnx"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "packaging", specifier = ">=26.3" },
     { name = "pyright", specifier = ">=1.1.414" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "ruff", specifier = ">=0.16.10" },

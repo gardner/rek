@@ -6,9 +6,10 @@ import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 from rek.audio import load_audio, record_audio
+from rek.backends import Backend, default_backend
 from rek.mlx_asr import DEFAULT_ASR_MODEL as MLX_ASR_MODEL
 from rek.mlx_diarization import MODEL_ID as MLX_DIARIZATION_MODEL
 from rek.models import (
@@ -30,8 +31,8 @@ class Options:
     device: Device
     asr_model: str
     language: str | None
-    diarization_backend: Literal["onnx", "mlx"] = "mlx"
-    asr_backend: Literal["onnx", "mlx"] = "mlx"
+    diarization_backend: Backend
+    asr_backend: Backend
 
 
 def parse_args(argv: list[str] | None = None) -> Options:
@@ -41,7 +42,7 @@ def parse_args(argv: list[str] | None = None) -> Options:
         "Without a file, record your microphone until Ctrl+C.",
         epilog="Example: rek 'Voice Memo.m4a'. Models download automatically on first use. "
         "Defaults: English, Nemotron speaker detection, Parakeet transcription, "
-        "MLX on Apple Silicon. Install rek[onnx] for optional ONNX support.",
+        "MLX on Apple Silicon, ONNX elsewhere.",
     )
     parser.add_argument("file", nargs="?", type=Path, help="Audio file, including M4A.")
     parser.add_argument("--input", type=Path, help=argparse.SUPPRESS)
@@ -57,9 +58,9 @@ def parse_args(argv: list[str] | None = None) -> Options:
     )
     advanced.add_argument(
         "--backend",
-        choices=["mlx", "onnx"],
-        default="mlx",
-        help="Backend for transcription and speaker detection (default: mlx).",
+        choices=["auto", "mlx", "onnx"],
+        default="auto",
+        help="Backend (auto: MLX on Apple Silicon, ONNX elsewhere).",
     )
     advanced.add_argument(
         "--asr-backend",
@@ -85,15 +86,16 @@ def parse_args(argv: list[str] | None = None) -> Options:
     args = parser.parse_args(argv)
     if args.file is not None and args.input is not None:
         parser.error("Specify the audio file once: either a filename or --input, not both.")
+    backend = default_backend() if args.backend == "auto" else args.backend
+    asr_backend = args.asr_backend or backend
     options = Options(
         args.file if args.file is not None else args.input,
         args.output_dir,
         cast(Device, args.device),
-        args.asr_model
-        or (MLX_ASR_MODEL if (args.asr_backend or args.backend) == "mlx" else DEFAULT_ASR_MODEL),
+        args.asr_model or (MLX_ASR_MODEL if asr_backend == "mlx" else DEFAULT_ASR_MODEL),
         args.language,
-        args.diarization_backend or args.backend,
-        args.asr_backend or args.backend,
+        args.diarization_backend or backend,
+        asr_backend,
     )
     if options.input is not None and not options.input.is_file():
         parser.error(f"Audio file does not exist: {options.input}")

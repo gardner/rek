@@ -3,9 +3,10 @@
 [GitHub repository](https://github.com/gardner/rek) · [Issues](https://github.com/gardner/rek/issues)
 
 Record your microphone or transcribe an audio file locally with timestamps and
-speaker labels. **MLX is the default for both transcription and diarization** on
-Apple Silicon. A normal installation includes MLX and does not install ONNX Runtime
-or sherpa-onnx. ONNX is available through the optional `onnx` extra.
+speaker labels. **The backend is selected automatically:** MLX on Apple Silicon
+Macs, ONNX on Windows, Linux, and Intel Macs. A normal Apple Silicon installation
+includes MLX. ONNX Runtime and sherpa-onnx remain optional: install `rek[onnx]`
+on other platforms, or to use ONNX on Apple Silicon.
 
 - [Parakeet TDT 0.6B v2 MLX](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v2)
   transcribes English with aligned word timestamps. Revision:
@@ -35,10 +36,10 @@ microphone until **Ctrl+C**, then transcribe. Models download automatically on f
 use; subsequent runs reuse the Hugging Face cache. Audio stays on your computer.
 The project uses Python 3.14, which uv can install automatically.
 
-The default pipeline requires an Apple Silicon Mac. `--device auto` uses the GPU
-through MLX; `--device cpu` requests CPU. Unsupported platforms receive an error
-instead of silently switching backends. Install and select ONNX as described below
-for Linux, Windows, or Intel Macs.
+`--backend auto` (the default) uses MLX when Python runs natively on Apple Silicon
+and ONNX elsewhere, including Intel Python under Rosetta. `--device auto` uses
+the GPU with MLX, Core ML with ONNX on macOS, and CPU on Windows/Linux.
+`--device cpu` forces CPU. Explicit `--backend mlx` still requires Apple Silicon.
 
 M4A uses FFmpeg; WAV, FLAC, and other libsndfile formats are also supported. Audio
 is mixed to mono and resampled to 16 kHz. The input file is never modified. The
@@ -53,7 +54,14 @@ after recording ends. No-speech input skips transcription.
 
 ## Optional ONNX installation
 
-Install the extra and select ONNX explicitly for both stages:
+On Windows, Linux, or Intel Macs, install the ONNX extra; no backend flag is needed:
+
+```sh
+uv tool install 'rek[onnx]'
+rek meeting.wav
+```
+
+From a checkout, or to select ONNX explicitly on Apple Silicon:
 
 ```sh
 uv run --extra onnx main.py meeting.wav --backend onnx
@@ -73,10 +81,11 @@ operations onto CPU and may be slower than CPU alone. CUDA is not configured.
 Linux and Windows inference have not been runtime-tested.
 
 `--diarization-backend` and `--asr-backend` override individual stages when needed;
-otherwise both inherit `--backend` (default `mlx`). `--asr-model` accepts a repository
+otherwise both inherit `--backend` (default `auto`). `--asr-model` accepts a repository
 or local directory compatible with the selected transcription backend. Its default
 is chosen automatically for that backend. MLX is installed only on Apple Silicon;
 an ONNX-only installation on other platforms does not pull MLX dependencies.
+If ONNX is selected but the extra is missing, the error provides installation instructions.
 
 ONNX assets are pinned in `src/rek/model_files.py`. Nemotron's graph and external
 weights are cached together as regular files because ONNX Runtime rejects external

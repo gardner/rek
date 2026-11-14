@@ -65,7 +65,10 @@ def load_diarizer(device: Literal["cpu", "coreml"]) -> Callable[[Audio], list[Sp
     try:
         import onnxruntime as ort  # pyright: ignore[reportMissingImports]
     except ImportError as error:
-        raise RuntimeError("ONNX is optional. Install it with: uv sync --extra onnx") from error
+        raise RuntimeError(
+            "ONNX dependencies are missing. Install with: uv tool install 'rek[onnx]' "
+            "(from a checkout: uv sync --extra onnx)."
+        ) from error
 
     print(f"Identifying speakers with {DIARIZATION_MODEL} using {device}...", flush=True)
     # The graph references this sibling external-data file by its exact basename.

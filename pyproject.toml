@@ -1,7 +1,7 @@
 [project]
 name = "rek"
 version = "0.1.2"
-description = "Local English transcription and speaker diarization with MLX"
+description = "Local English transcription and speaker diarization with MLX or ONNX"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
@@ -32,6 +32,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "packaging>=26.3",
     "pyright>=1.1.414",
     "pytest>=9.1.1",
     "ruff>=0.16.10",

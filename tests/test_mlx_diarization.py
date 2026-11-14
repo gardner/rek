@@ -9,8 +9,7 @@ from rek.cli import parse_args
 from rek.transcript import SpeakerTurn
 
 
-def test_mlx_is_default() -> None:
-    assert parse_args([]).diarization_backend == "mlx"
+def test_mlx_can_be_selected() -> None:
     assert parse_args(["--diarization-backend", "mlx"]).diarization_backend == "mlx"
 
 
@@ -41,7 +40,7 @@ def test_mlx_uses_pinned_weights_and_shared_segment_policy() -> None:
 def test_unsupported_platform_fails_before_import() -> None:
     from rek.mlx_diarization import validate_platform
 
-    with patch("rek.mlx_diarization.sys.platform", "linux"):
+    with patch("sys.platform", "linux"):
         with pytest.raises(ValueError, match="Apple Silicon"):
             validate_platform()
 
