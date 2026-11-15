@@ -33,10 +33,8 @@ def test_default_install_matches_platform(system: str, machine: str, expected: s
         or dep.marker.evaluate({"sys_platform": system, "platform_machine": machine})
     }
     assert ("mlx-audio" in installed) == (expected == "mlx")
-    assert "onnxruntime" not in installed
-    assert "sherpa-onnx" not in installed
-    extras = {Requirement(dep).name for dep in project["optional-dependencies"]["onnx"]}
-    assert extras == {"onnxruntime", "sherpa-onnx"}
+    assert {"onnxruntime", "sherpa-onnx"} <= installed
+    assert "onnx" not in project.get("optional-dependencies", {})
 
 
 @pytest.mark.parametrize("system,machine,expected", PLATFORMS)
@@ -121,10 +119,10 @@ def test_non_apple_default_runs_onnx(
 
 
 @pytest.mark.parametrize("module", ["onnxruntime", "sherpa_onnx"])
-def test_missing_onnx_explains_extra(module: str) -> None:
+def test_missing_onnx_explains_repair(module: str) -> None:
     from rek.models import diarize, transcribe
 
     infer = diarize if module == "onnxruntime" else transcribe
     with patch.dict("sys.modules", {module: None}):
-        with pytest.raises(RuntimeError, match=r"rek\[onnx\]"):
+        with pytest.raises(RuntimeError, match=r"uv tool install --reinstall rek"):
             infer(np.zeros(16000, dtype=np.float32), "cpu")

@@ -9,6 +9,8 @@ dependencies = [
     "librosa>=1.0.0",
     "mlx-audio>=0.6.5 ; platform_machine == 'arm64' and sys_platform == 'darwin'",
     "numpy>=2.5.3",
+    "onnxruntime>=1.32.0",
+    "sherpa-onnx>=2.0.1",
     "sounddevice>=0.5.6",
     "soundfile>=0.14.0",
 ]
@@ -19,12 +21,6 @@ Issues = "https://github.com/gardner/rek/issues"
 
 [project.scripts]
 rek = "rek:main"
-
-[project.optional-dependencies]
-onnx = [
-    "onnxruntime>=1.32.0",
-    "sherpa-onnx>=2.0.1",
-]
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]

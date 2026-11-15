@@ -4,9 +4,10 @@
 
 Record your microphone or transcribe an audio file locally with timestamps and
 speaker labels. **The backend is selected automatically:** MLX on Apple Silicon
-Macs, ONNX on Windows, Linux, and Intel Macs. A normal Apple Silicon installation
-includes MLX. ONNX Runtime and sherpa-onnx remain optional: install `rek[onnx]`
-on other platforms, or to use ONNX on Apple Silicon.
+Macs, ONNX on Windows, Linux, and Intel Macs. The default package includes ONNX
+Runtime and sherpa-onnx on all platforms, plus MLX on Apple Silicon. No extras
+are required; the platform is checked at runtime and only the selected inference
+backend is loaded.
 
 - [Parakeet TDT 0.6B v2 MLX](https://huggingface.co/mlx-community/parakeet-tdt-0.6b-v2)
   transcribes English with aligned word timestamps. Revision:
@@ -52,29 +53,22 @@ at 0.5, preserving overlaps. MLX Parakeet uses 30-second chunks with two seconds
 overlap and the library's token alignment/merge implementation. Transcription starts
 after recording ends. No-speech input skips transcription.
 
-## Optional ONNX installation
+## Backend selection
 
-On Windows, Linux, or Intel Macs, install the ONNX extra; no backend flag is needed:
-
-```sh
-uv tool install 'rek[onnx]'
-rek meeting.wav
-```
-
-From a checkout, or to select ONNX explicitly on Apple Silicon:
+The default installation supports ONNX, including on Apple Silicon. To select it
+explicitly:
 
 ```sh
-uv run --extra onnx main.py meeting.wav --backend onnx
+uv run main.py meeting.wav --backend onnx
 ```
 
 For an installed command:
 
 ```sh
-uv tool install '.[onnx]'
 rek meeting.wav --backend onnx
 ```
 
-The extra installs `onnxruntime` and `sherpa-onnx`. It selects the pinned Nemotron
+The ONNX backend selects the pinned Nemotron
 FP32 ONNX export and English Parakeet v2 INT8 export. On macOS, auto requests
 Core ML; elsewhere it uses CPU. `--device cpu` forces CPU. Core ML may partition
 operations onto CPU and may be slower than CPU alone. CUDA is not configured.
@@ -85,7 +79,7 @@ otherwise both inherit `--backend` (default `auto`). `--asr-model` accepts a rep
 or local directory compatible with the selected transcription backend. Its default
 is chosen automatically for that backend. MLX is installed only on Apple Silicon;
 an ONNX-only installation on other platforms does not pull MLX dependencies.
-If ONNX is selected but the extra is missing, the error provides installation instructions.
+If ONNX dependencies are missing, the error provides instructions to repair the installation.
 
 ONNX assets are pinned in `src/rek/model_files.py`. Nemotron's graph and external
 weights are cached together as regular files because ONNX Runtime rejects external
@@ -114,7 +108,7 @@ Set `HF_HOME` to relocate model caches. Populate the cache before setting
 ## Diarization benchmark
 
 ```sh
-uv run --extra onnx python -m rek.benchmark meeting.wav --output benchmark.json
+uv run python -m rek.benchmark meeting.wav --output benchmark.json
 ```
 
 Each backend runs in a separate process. Reports separate loading (including any
@@ -147,7 +141,7 @@ uv run pyright
 uv run python scripts/check_file_length.py
 ```
 
-Unit tests mock model inference and need neither ONNX nor downloaded weights.
+Unit tests mock model inference and need no downloaded weights.
 M4A tests use FFmpeg when available. Ruff enforces annotations and complexity <=10,
 Pyright checks types, and source files are limited to 500 lines.
 

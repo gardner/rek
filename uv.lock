@@ -897,14 +897,10 @@ dependencies = [
     { name = "librosa" },
     { name = "mlx-audio", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "numpy" },
-    { name = "sounddevice" },
-    { name = "soundfile" },
-]
-
-[package.optional-dependencies]
-onnx = [
     { name = "onnxruntime" },
     { name = "sherpa-onnx" },
+    { name = "sounddevice" },
+    { name = "soundfile" },
 ]
 
 [package.dev-dependencies]
@@ -921,12 +917,11 @@ requires-dist = [
     { name = "librosa", specifier = ">=1.0.0" },
     { name = "mlx-audio", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.6.5" },
     { name = "numpy", specifier = ">=2.5.3" },
-    { name = "onnxruntime", marker = "extra == 'onnx'", specifier = ">=1.32.0" },
-    { name = "sherpa-onnx", marker = "extra == 'onnx'", specifier = ">=2.0.1" },
+    { name = "onnxruntime", specifier = ">=1.32.0" },
+    { name = "sherpa-onnx", specifier = ">=2.0.1" },
     { name = "sounddevice", specifier = ">=0.5.6" },
     { name = "soundfile", specifier = ">=0.14.0" },
 ]
-provides-extras = ["onnx"]
 
 [package.metadata.requires-dev]
 dev = [

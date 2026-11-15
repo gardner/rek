@@ -52,7 +52,7 @@ def test_missing_onnx_dependency_has_install_instructions() -> None:
     from rek.models import transcribe as onnx_transcribe
 
     with patch.dict("sys.modules", {"onnxruntime": None, "sherpa_onnx": None}):
-        with pytest.raises(RuntimeError, match="uv sync --extra onnx"):
+        with pytest.raises(RuntimeError, match=r"uv sync\)"):
             load_diarizer("cpu")
-        with pytest.raises(RuntimeError, match="uv sync --extra onnx"):
+        with pytest.raises(RuntimeError, match=r"uv sync\)"):
             onnx_transcribe(np.zeros(16000, dtype=np.float32), "cpu")

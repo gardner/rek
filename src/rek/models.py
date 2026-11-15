@@ -71,8 +71,8 @@ def transcribe(
         import sherpa_onnx  # pyright: ignore[reportMissingImports]
     except ImportError as error:
         raise RuntimeError(
-            "ONNX dependencies are missing. Install with: uv tool install 'rek[onnx]' "
-            "(from a checkout: uv sync --extra onnx)."
+            "ONNX dependencies are missing. Reinstall with: uv tool install --reinstall rek "
+            "(from a checkout: uv sync)."
         ) from error
 
     print(f"Transcribing English with {model_id} using ONNX provider {device}...", flush=True)
